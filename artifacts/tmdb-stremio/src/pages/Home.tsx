@@ -198,7 +198,6 @@ export default function Home() {
           rating={selectedMedia.rating}
           year={selectedMedia.year}
           country={locale.code}
-          initialProviders={"providers" in selectedMedia ? (selectedMedia as PopularTitle).providers : undefined}
         />
       )}
     </div>
