@@ -11,7 +11,10 @@ interface MediaCardProps {
 
 export function MediaCard({ media, onClick }: MediaCardProps) {
   const isPopularTitle = "providers" in media;
-  const hasProviders = isPopularTitle && (media as PopularTitle).providers?.length > 0;
+  const providers = isPopularTitle ? (media as PopularTitle).providers ?? [] : [];
+  const hasProviders = providers.length > 0;
+  const displayProviders = providers.filter((p) => p.type === "flatrate" || p.type === "free").slice(0, 4);
+  const extraCount = providers.length - displayProviders.length;
 
   return (
     <motion.div
@@ -29,10 +32,9 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               loading="lazy"
             />
-            {/* Dark overlay on hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
               <p className="text-sm text-white/80 line-clamp-3">
-                {media.overview || "No description available."}
+                {media.overview || "Sin descripción disponible."}
               </p>
             </div>
           </>
@@ -50,22 +52,37 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
           </div>
         )}
 
-        {/* Provider Indicators (only shown on popular titles pre-fetched) */}
+        {/* Provider Icons — shown bottom-left on hover too */}
         {hasProviders && (
-          <div className="absolute top-2 left-2 flex -space-x-2 z-10">
-            {(media as PopularTitle).providers.slice(0, 3).map((p, i) => (
+          <div className="absolute top-2 left-2 flex gap-1 z-10">
+            {displayProviders.map((p, i) =>
               p.logo ? (
-                <img 
-                  key={i} 
-                  src={getTmdbImage(p.logo, "w500") || ""} 
-                  alt={p.name} 
-                  className="w-6 h-6 rounded-full border border-black/50 shadow-sm"
-                />
-              ) : null
-            ))}
-            {(media as PopularTitle).providers.length > 3 && (
-              <div className="w-6 h-6 rounded-full border border-black/50 bg-black/80 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                +{(media as PopularTitle).providers.length - 3}
+                <div
+                  key={`${p.providerId}-${i}`}
+                  className="relative group/icon"
+                  title={p.name}
+                >
+                  <img
+                    src={p.logo}
+                    alt={p.name}
+                    className="w-8 h-8 rounded-lg border border-white/20 shadow-lg shadow-black/50 object-cover bg-black"
+                  />
+                </div>
+              ) : (
+                <div
+                  key={`${p.providerId}-${i}`}
+                  className="w-8 h-8 rounded-lg border border-white/20 bg-black/70 flex items-center justify-center shadow-lg"
+                  title={p.name}
+                >
+                  <span className="text-[9px] font-bold text-white leading-none text-center px-0.5">
+                    {p.name.slice(0, 3).toUpperCase()}
+                  </span>
+                </div>
+              )
+            )}
+            {extraCount > 0 && (
+              <div className="w-8 h-8 rounded-lg border border-white/20 bg-black/70 backdrop-blur-md flex items-center justify-center shadow-lg">
+                <span className="text-[10px] font-bold text-white">+{extraCount}</span>
               </div>
             )}
           </div>
@@ -77,9 +94,9 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
           {media.title}
         </h3>
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
-          <span>{media.year || "Unknown"}</span>
+          <span>{media.year || "—"}</span>
           <span className="uppercase tracking-wider font-semibold text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/70">
-            {media.type}
+            {media.type === "series" ? "Serie" : "Película"}
           </span>
         </div>
       </div>
