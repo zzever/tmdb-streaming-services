@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "hls.js": "^1.6.15",
     "use-debounce": "^10.1.0"
   }
 }

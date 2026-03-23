@@ -151,6 +151,25 @@ export interface PersonData {
   role: "actor" | "director";
 }
 
+// ── Live TV channels ──
+export function useLiveChannels(params?: { group?: string }) {
+  return useQuery({
+    queryKey: ["live-channels", params?.group ?? "all"],
+    queryFn: async () => {
+      const u = new URL("/api/streaming/live-channels", window.location.origin);
+      if (params?.group) u.searchParams.set("group", params.group);
+      const res = await fetch(u.toString());
+      if (!res.ok) throw new Error("Failed to fetch live channels");
+      return res.json() as Promise<{
+        channels: Array<{ id: string; name: string; logo: string; groups: string[]; url: string }>;
+        groups: Array<{ id: string; label: string; count: number }>;
+        total: number;
+      }>;
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 export function useGetPersonFilmography(
   name: string,
   options?: { query?: { enabled?: boolean } }

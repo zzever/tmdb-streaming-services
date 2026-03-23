@@ -22,11 +22,12 @@ import { useLocale } from "@/context/LocaleContext";
 import {
   Copy, Check, Plug, Shuffle, BookMarked, Plus,
   Film, Tv2, Clapperboard, CalendarDays, Star, MonitorPlay,
-  Zap, Tag, X, Dices,
+  Zap, Tag, X, Dices, Radio,
 } from "lucide-react";
 import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion, AnimatePresence } from "framer-motion";
+import { LiveTV } from "@/components/LiveTV";
 
 const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
@@ -362,16 +363,17 @@ function GenreChips({ type, selectedId, onSelect }: GenreChipsProps) {
 }
 
 // ── Main types ──────────────────────────────────────────────────
-type ViewMode = "browse" | "lists" | "releases";
+type ViewMode = "browse" | "lists" | "releases" | "live";
 type AnyMedia = PopularTitle | SearchResult | ReleaseTitle | DiscoverTitle;
 
 const TABS = [
-  { id: "browse-movie",    label: "Películas",  icon: <Film className="w-3.5 h-3.5" />,        mode: "browse" as ViewMode, contentType: "movie" as ContentType },
-  { id: "browse-series",   label: "Series",     icon: <Tv2 className="w-3.5 h-3.5" />,          mode: "browse" as ViewMode, contentType: "series" as ContentType },
-  { id: "browse-anime",    label: "Anime",      icon: <span className="text-xs leading-none">⛩</span>, mode: "browse" as ViewMode, contentType: "anime" as ContentType },
-  { id: "browse-programa", label: "Programas",  icon: <MonitorPlay className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, contentType: "programa" as ContentType },
-  { id: "releases",        label: "Estrenos",   icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, contentType: null },
-  { id: "lists",           label: "Mis Listas", icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, contentType: null },
+  { id: "browse-movie",    label: "Películas",    icon: <Film className="w-3.5 h-3.5" />,        mode: "browse" as ViewMode, contentType: "movie" as ContentType },
+  { id: "browse-series",   label: "Series",       icon: <Tv2 className="w-3.5 h-3.5" />,          mode: "browse" as ViewMode, contentType: "series" as ContentType },
+  { id: "browse-anime",    label: "Anime",        icon: <span className="text-xs leading-none">⛩</span>, mode: "browse" as ViewMode, contentType: "anime" as ContentType },
+  { id: "browse-programa", label: "Programas",    icon: <MonitorPlay className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, contentType: "programa" as ContentType },
+  { id: "releases",        label: "Estrenos",     icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, contentType: null },
+  { id: "live",            label: "TV en Directo", icon: <Radio className="w-3.5 h-3.5" />,       mode: "live" as ViewMode, contentType: null },
+  { id: "lists",           label: "Mis Listas",   icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, contentType: null },
 ];
 
 // ── Home ────────────────────────────────────────────────────────
@@ -576,6 +578,9 @@ export default function Home() {
         {viewMode === "releases" && (
           <ReleasesView country={locale.code} onSelect={(t) => setSelectedMedia(t as any)} />
         )}
+
+        {/* ── Live TV view ── */}
+        {viewMode === "live" && <LiveTV />}
 
         {/* ── Browse / search grid ── */}
         {viewMode === "browse" && (

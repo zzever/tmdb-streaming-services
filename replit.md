@@ -67,6 +67,7 @@ React + Vite frontend. Preview path: `/` (root).
 - **Anime** — Japanese animation (genre 16 + originLanguage=ja), no genre chips
 - **Programas** — Spanish-language documentaries/reality/talk shows (genres 99|10764|10767 + originLanguage=es), no genre chips
 - **Estrenos** — upcoming/recent releases; sub-tabs: Cinema (release type 2/3) vs Streaming (release type 4); ReleaseCard with backdrop hover crossfade animation
+- **TV en Directo** — 213 Spanish live TV channels from M3U playlist; group filter chips; HLS player via hls.js; fallback to VLC/copy URL on CORS error
 - **Mis Listas** — import a MDBList or Trakt list by URL
 
 **Key files:**

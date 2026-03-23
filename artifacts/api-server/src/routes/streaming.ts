@@ -1,4 +1,7 @@
 import { Router, type IRouter } from "express";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
 import {
   GetStreamingProvidersQueryParams,
   SearchTitlesQueryParams,
@@ -553,6 +556,49 @@ router.get("/streaming/person", async (req, res) => {
     req.log.error({ err }, "Error fetching person credits");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch person data" });
   }
+});
+
+// ── Live TV channels ────────────────────────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const channelsData: any[] = JSON.parse(readFileSync(path.join(__dirname, "../data/channels.json"), "utf8"));
+
+const GROUP_LABELS: Record<string, string> = {
+  General: "General", News: "Noticias", Sports: "Deportes", Music: "Música",
+  Movies: "Cine", Series: "Series", Animation: "Animación", Kids: "Infantil",
+  Public: "Pública", Entertainment: "Entretenimiento", Documentary: "Documental",
+  Comedy: "Comedia", Culture: "Cultura", Classic: "Clásica", Religious: "Religiosa",
+  Family: "Familia", Lifestyle: "Estilo de vida", Business: "Economía",
+  Education: "Educación", Weather: "Tiempo", Outdoor: "Naturaleza",
+  Legislative: "Parlamento",
+};
+
+router.get("/streaming/live-channels", (req, res) => {
+  const group = req.query.group as string | undefined;
+  const q = (req.query.q as string | undefined)?.toLowerCase().trim();
+
+  let channels: any[] = channelsData as any[];
+
+  if (group && group !== "all") {
+    channels = channels.filter((c: any) => c.groups.includes(group));
+  }
+
+  if (q) {
+    channels = channels.filter((c: any) => c.name.toLowerCase().includes(q));
+  }
+
+  // Build group index
+  const groupCounts: Record<string, number> = {};
+  for (const ch of channelsData as any[]) {
+    for (const g of ch.groups) {
+      groupCounts[g] = (groupCounts[g] || 0) + 1;
+    }
+  }
+
+  const groups = Object.entries(groupCounts)
+    .map(([id, count]) => ({ id, label: GROUP_LABELS[id] ?? id, count }))
+    .sort((a, b) => b.count - a.count);
+
+  res.json({ channels, groups, total: (channelsData as any[]).length });
 });
 
 export default router;
