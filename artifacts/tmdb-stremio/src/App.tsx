@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LocaleProvider } from "@/context/LocaleContext";
 import { ListsProvider } from "@/context/ListsContext";
 import Home from "@/pages/Home";
+import OpenSource from "@/pages/OpenSource";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -21,6 +22,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/open-source" component={OpenSource} />
       <Route component={NotFound} />
     </Switch>
   );

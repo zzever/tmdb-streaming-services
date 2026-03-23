@@ -9,6 +9,7 @@ import { AddListDialog } from "@/components/AddListDialog";
 import { useLists } from "@/context/ListsContext";
 import { useLocale } from "@/context/LocaleContext";
 import { Copy, Check, Zap, Plug, Shuffle, BookMarked, Plus, Film, Tv2 } from "lucide-react";
+import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -292,9 +293,15 @@ export default function Home() {
         <p className="text-white/20 text-xs">
           Data provided by TMDB · Streaming availability for Spain
         </p>
-        <p className="text-white/10 text-[11px] mt-2 tracking-widest uppercase font-medium">
-          designed by zzever
-        </p>
+        <div className="mt-2 flex items-center justify-center gap-3">
+          <Link href="/open-source" className="text-[11px] text-white/20 hover:text-white/50 transition-colors">
+            Código abierto
+          </Link>
+          <span className="text-white/10 text-[11px]">·</span>
+          <p className="text-white/10 text-[11px] tracking-widest uppercase font-medium">
+            designed by zzever
+          </p>
+        </div>
       </footer>
 
       {showAddList && <AddListDialog onClose={() => setShowAddList(false)} />}
