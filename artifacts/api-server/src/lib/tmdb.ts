@@ -145,11 +145,16 @@ export function mapProviders(
       : `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${locale}`
     : null;
 
+  // Names containing these strings are excluded regardless of monetization type
+  const EXCLUDED_NAME_FRAGMENTS = ['with ads', 'con anuncios', 'standard with'];
+
   for (const provType of types) {
     const items = providers[provType] as TmdbProvider[] | undefined;
     if (!items) continue;
     for (const prov of items) {
       if (seenProviderIds.has(prov.provider_id)) continue;
+      const nameLower = prov.provider_name.toLowerCase();
+      if (EXCLUDED_NAME_FRAGMENTS.some((f) => nameLower.includes(f))) continue;
       seenProviderIds.add(prov.provider_id);
       const logoPath = prov.logo_path ? `https://image.tmdb.org/t/p/w185${prov.logo_path}` : null;
       result.push({

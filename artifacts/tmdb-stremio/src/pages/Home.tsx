@@ -23,7 +23,7 @@ import { useLocale } from "@/context/LocaleContext";
 import {
   Copy, Check, Plug, Shuffle, BookMarked, Plus,
   Film, Tv2, Clapperboard, CalendarDays, Star, MonitorPlay,
-  Zap, Tag, X, Dices, Radio, Heart, ChevronDown, SortAsc,
+  Zap, Tag, X, Dices, Radio, Heart, ChevronDown, SortAsc, Music2,
 } from "lucide-react";
 import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -34,10 +34,11 @@ const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
 
 // Content type constants
-type ContentType = "movie" | "series" | "anime" | "programa";
+type ContentType = "movie" | "series" | "anime" | "programa" | "musica";
 const ANIME_GENRE_ID = "16";
 const ANIME_LANG = "ja";
 const PROGRAMA_GENRE_IDS = "99|10764|10767";
+const MUSICA_GENRE_ID = "10402";
 
 // ── Release modes ──────────────────────────────────────────────
 type ReleaseMode = {
@@ -381,6 +382,7 @@ const TABS = [
   { id: "browse-series",   label: "Series",       icon: <Tv2 className="w-3.5 h-3.5" />,          mode: "browse" as ViewMode, contentType: "series" as ContentType },
   { id: "browse-anime",    label: "Anime",        icon: <span className="text-xs leading-none">⛩</span>, mode: "browse" as ViewMode, contentType: "anime" as ContentType },
   { id: "browse-programa", label: "Programas",    icon: <MonitorPlay className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, contentType: "programa" as ContentType },
+  { id: "browse-musica",   label: "Música",       icon: <Music2 className="w-3.5 h-3.5" />,       mode: "browse" as ViewMode, contentType: "musica" as ContentType },
   { id: "releases",        label: "Estrenos",     icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, contentType: null },
   { id: "live",            label: "TV en Directo", icon: <Radio className="w-3.5 h-3.5" />,       mode: "live" as ViewMode, contentType: null },
   { id: "watchlist",       label: "Favoritos",    icon: <Heart className="w-3.5 h-3.5" />,        mode: "watchlist" as ViewMode, contentType: null },
@@ -408,13 +410,14 @@ export default function Home() {
 
   // Map ContentType to TMDB type
   const tmdbType: "movie" | "series" =
-    activeContentType === "movie" ? "movie" : "series";
+    activeContentType === "movie" || activeContentType === "musica" ? "movie" : "series";
 
   const isSearching = debouncedQuery.length > 2;
   const isFiltering = !isSearching && selectedGenreId !== null;
   const isAnime = activeContentType === "anime";
   const isPrograma = activeContentType === "programa";
-  const isSpecialBrowse = isAnime || isPrograma;
+  const isMusica = activeContentType === "musica";
+  const isSpecialBrowse = isAnime || isPrograma || isMusica;
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -422,7 +425,7 @@ export default function Home() {
     setAccumulatedResults([]);
   }, [activeContentType, selectedGenreId, debouncedQuery, sortBy, locale.code]);
 
-  // Popular (movie/series only, not anime/programa)
+  // Popular (movie/series only, not special tabs)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
     { type: tmdbType, page, country: locale.code },
     { query: { enabled: !isSearching && !isFiltering && !isSpecialBrowse && viewMode === "browse" } }
@@ -446,6 +449,12 @@ export default function Home() {
     { query: { enabled: isPrograma && !isSearching && viewMode === "browse" } }
   );
 
+  // Música discover — concerts, biopics, musicals (genre 10402)
+  const { data: musicaData, isLoading: isLoadingMusica } = useDiscover(
+    { type: "movie", country: locale.code, genreIds: MUSICA_GENRE_ID, page, alwaysEnabled: true, sortBy: sortBy },
+    { query: { enabled: isMusica && !isSearching && viewMode === "browse" } }
+  );
+
   // Search
   const { data: searchData, isLoading: isLoadingSearch } = useSearchTitles(
     { query: debouncedQuery, type: tmdbType },
@@ -457,6 +466,7 @@ export default function Home() {
     isSearching   ? searchData?.results
     : isAnime     ? animeData?.results
     : isPrograma  ? programaData?.results
+    : isMusica    ? musicaData?.results
     : isFiltering ? discoverData?.results
     : popularData?.results;
 
@@ -475,8 +485,9 @@ export default function Home() {
 
   const displayedData: any[] = isSearching ? (searchData?.results ?? []) : accumulatedResults;
   const totalPages = isFiltering ? (discoverData?.totalPages ?? 1)
-    : isAnime ? (animeData?.totalPages ?? 1)
+    : isAnime    ? (animeData?.totalPages ?? 1)
     : isPrograma ? (programaData?.totalPages ?? 1)
+    : isMusica   ? (musicaData?.totalPages ?? 1)
     : 999;
   const canLoadMore = !isSearching && page < Math.min(totalPages, 10);
 
@@ -484,6 +495,7 @@ export default function Home() {
     isSearching  ? isLoadingSearch
     : isAnime    ? isLoadingAnime
     : isPrograma ? isLoadingPrograma
+    : isMusica   ? isLoadingMusica
     : isFiltering ? isLoadingDiscover
     : isLoadingPopular;
 
