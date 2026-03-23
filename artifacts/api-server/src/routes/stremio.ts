@@ -194,56 +194,86 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       getTmdbDetails(imdbId, mediaType).catch(() => null),
     ]);
 
-    if (!providersResult) {
-      res.json({ streams: [] });
-      return;
-    }
-
-    const mapped = mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, COUNTRY);
-
-    // Fetch JustWatch direct URLs in parallel (uses title for accurate node lookup)
+    // JustWatch offers — fetch regardless of whether TMDB has providers
     const jwOffers = title
       ? await getJWDirectOffers(tmdbId, mediaType, COUNTRY, title)
       : [];
 
-    // Build lookup: providerName::type → directUrl, providerName → directUrl (fallback)
+    // Build lookup: providerName::type → best (HD-preferred) directUrl, providerName → directUrl (fallback)
+    const PRES_RANK: Record<string, number> = { "4K": 0, "UHD": 1, "HD": 2, "SD": 3 };
+    const jwUrlRank = new Map<string, number>(); // tracks quality rank for each key
     const jwUrlMap = new Map<string, string>();
     for (const offer of jwOffers) {
       const key = `${offer.providerName}::${offer.monetizationType}`;
-      if (!jwUrlMap.has(key)) jwUrlMap.set(key, offer.directUrl);
+      const rank = PRES_RANK[offer.presentationType ?? ""] ?? 99;
+      if (!jwUrlMap.has(key) || rank < (jwUrlRank.get(key) ?? 999)) {
+        jwUrlMap.set(key, offer.directUrl);
+        jwUrlRank.set(key, rank);
+      }
       if (!jwUrlMap.has(offer.providerName)) jwUrlMap.set(offer.providerName, offer.directUrl);
     }
 
-    // Sort by type priority, then build streams — deduplicate by final URL
-    const sorted = [...mapped].sort(
-      (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
-    );
-
     const seenUrls = new Set<string>();
+    const coveredProviders = new Set<string>(); // provider names already added via TMDB block
     const streams: object[] = [];
 
-    for (const p of sorted) {
-      const directUrl =
-        jwUrlMap.get(`${p.name}::${p.type}`) ??
-        jwUrlMap.get(p.name) ??
-        p.watchUrl;
+    if (providersResult) {
+      // TMDB has provider data — use it as the source of truth (logos, names)
+      const mapped = mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, COUNTRY);
+      const sorted = [...mapped].sort(
+        (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
+      );
 
-      // Skip duplicate URLs (e.g. Netflix + Netflix Standard pointing to same title)
-      if (seenUrls.has(directUrl)) continue;
-      seenUrls.add(directUrl);
+      for (const p of sorted) {
+        const directUrl =
+          jwUrlMap.get(`${p.name}::${p.type}`) ??
+          jwUrlMap.get(p.name) ??
+          p.watchUrl;
 
-      const meta = TYPE_META[p.type] ?? { emoji: "▶️", label: p.type };
+        if (seenUrls.has(directUrl)) continue;
+        seenUrls.add(directUrl);
+        coveredProviders.add(`${p.name}::${p.type}`);
 
-      // externalUrl at root level tells Stremio Desktop/Web to open the URL
-      // in an external browser instead of trying to play it as a video stream.
+        const meta = TYPE_META[p.type] ?? { emoji: "▶️", label: p.type };
+        streams.push({
+          name: `🇪🇸 ${p.name}`,
+          title: `${meta.emoji} ${meta.label} · Ver en ${p.name}`,
+          thumbnail: p.logo ?? undefined,
+          externalUrl: directUrl,
+          behaviorHints: { bingeGroup: `${p.type}-${p.name}` },
+        });
+      }
+    }
+
+    // JustWatch-only: add any offer whose URL is not already in streams
+    // This covers titles where TMDB has no watch provider data (e.g. El Hormiguero)
+    // Keep only the best offer per (providerName, monetizationType) — prefer HD over SD
+    const JW_ALLOWED_TYPES = new Set(["flatrate", "free", "rent", "buy"]);
+    // Build a Map: provKey → best offer (lowest PRES_RANK wins)
+    const bestJwOffer = new Map<string, typeof jwOffers[0]>();
+    for (const offer of jwOffers) {
+      if (!JW_ALLOWED_TYPES.has(offer.monetizationType)) continue;
+      const provKey = `${offer.providerName}::${offer.monetizationType}`;
+      const existing = bestJwOffer.get(provKey);
+      const rank = PRES_RANK[offer.presentationType ?? ""] ?? 99;
+      const existingRank = existing ? (PRES_RANK[existing.presentationType ?? ""] ?? 99) : 999;
+      if (rank < existingRank) bestJwOffer.set(provKey, offer);
+    }
+    // Sort by monetization priority and add to streams
+    const uniqueJwOffers = [...bestJwOffer.values()].sort(
+      (a, b) => TYPE_ORDER.indexOf(a.monetizationType) - TYPE_ORDER.indexOf(b.monetizationType)
+    );
+    for (const offer of uniqueJwOffers) {
+      const provKey = `${offer.providerName}::${offer.monetizationType}`;
+      if (coveredProviders.has(provKey)) continue; // already added from TMDB block
+      if (seenUrls.has(offer.directUrl)) continue;
+      seenUrls.add(offer.directUrl);
+      const meta = TYPE_META[offer.monetizationType] ?? { emoji: "▶️", label: offer.monetizationType };
       streams.push({
-        name: `🇪🇸 ${p.name}`,
-        title: `${meta.emoji} ${meta.label} · Ver en ${p.name}`,
-        thumbnail: p.logo ?? undefined,
-        externalUrl: directUrl,
-        behaviorHints: {
-          bingeGroup: `${p.type}-${p.name}`,
-        },
+        name: `🇪🇸 ${offer.providerName}`,
+        title: `${meta.emoji} ${meta.label} · Ver en ${offer.providerName}`,
+        externalUrl: offer.directUrl,
+        behaviorHints: { bingeGroup: `${offer.monetizationType}-${offer.providerName}` },
       });
     }
 
@@ -251,13 +281,16 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
     // add a Movistar+ search link (Movistar+ bundles Prime Video and ATRESplayer Premium)
     if (title) {
       const PRIME_NAMES  = ["amazon prime video", "amazon video", "prime video"];
-      const ATRES_NAMES  = ["atresmedia", "atresplayer", "antena 3", "la sexta"];
+      const ATRES_NAMES  = ["atresmedia", "atresplayer", "atres player", "antena 3", "la sexta"];
       const MPLUS_HOSTS  = ["ver.movistarplus.es", "wl.movistarplus.es", "movistarplus.es"];
 
-      const hasPrimeOrAtres = sorted.some((p) => {
-        const n = p.name.toLowerCase();
-        return PRIME_NAMES.some((k) => n.includes(k)) || ATRES_NAMES.some((k) => n.includes(k));
-      });
+      const allProviderNames = [
+        ...(providersResult ? mapProviders(providersResult.data, providersResult.watchUrl).map((p) => p.name.toLowerCase()) : []),
+        ...jwOffers.map((o) => o.providerName.toLowerCase()),
+      ];
+      const hasPrimeOrAtres = allProviderNames.some(
+        (n) => PRIME_NAMES.some((k) => n.includes(k)) || ATRES_NAMES.some((k) => n.includes(k))
+      );
       const hasMovistar = [...seenUrls].some((u) => MPLUS_HOSTS.some((h) => u.includes(h)));
 
       if (hasPrimeOrAtres && !hasMovistar) {
