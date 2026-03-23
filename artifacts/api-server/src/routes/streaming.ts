@@ -40,7 +40,7 @@ router.get("/streaming/providers", async (req, res) => {
     ]);
 
     const mapped = providersResult
-      ? mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType)
+      ? mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, country)
       : [];
 
     res.json({
@@ -117,7 +117,7 @@ router.get("/streaming/popular", async (req, res) => {
         try {
           const providersResult = await getWatchProviders(r.id, mediaType, country);
           if (providersResult) {
-            providers = mapProviders(providersResult.data, providersResult.watchUrl, r.id, mediaType);
+            providers = mapProviders(providersResult.data, providersResult.watchUrl, r.id, mediaType, country);
           }
         } catch {
           providers = [];

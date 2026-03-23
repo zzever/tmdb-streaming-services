@@ -97,14 +97,16 @@ export function mapProviders(
   watchUrl: string,
   tmdbId?: number,
   mediaType?: "movie" | "series",
+  country: string = DEFAULT_COUNTRY,
 ): MappedProvider[] {
   const result: MappedProvider[] = [];
   const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'rent', 'buy', 'free', 'ads'];
 
-  const titleUrl = tmdbId
+  const locale = country.toUpperCase();
+  const watchPageUrl = tmdbId
     ? mediaType === "series"
-      ? `https://www.themoviedb.org/tv/${tmdbId}`
-      : `https://www.themoviedb.org/movie/${tmdbId}`
+      ? `https://www.themoviedb.org/tv/${tmdbId}/watch?locale=${locale}`
+      : `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${locale}`
     : null;
 
   for (const provType of types) {
@@ -117,7 +119,7 @@ export function mapProviders(
         logo: logoPath,
         type: provType as string,
         providerId: prov.provider_id,
-        tmdbUrl: titleUrl ?? `https://www.themoviedb.org/watch/providers/movie?provider=${prov.provider_id}`,
+        tmdbUrl: watchPageUrl ?? `https://www.themoviedb.org/watch/providers/movie?provider=${prov.provider_id}`,
         watchUrl,
       });
     }
