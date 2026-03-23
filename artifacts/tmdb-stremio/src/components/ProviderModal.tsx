@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dialog } from "./ui/dialog";
-import { useGetStreamingProviders, useGetTitleDetails } from "@/hooks/use-media-api";
+import { useGetStreamingProviders, useGetTitleDetails, useKitsuSearch } from "@/hooks/use-media-api";
 import { getTmdbImage } from "@/lib/utils";
 import { WATCH_LOCALES } from "@/lib/locales";
 import {
@@ -39,6 +39,12 @@ const MUSIC_GENRE_NAMES = ["música", "music", "musical", "musique"];
 function isMusicContent(genres?: string[] | null): boolean {
   if (!genres) return false;
   return genres.some((g) => MUSIC_GENRE_NAMES.includes(g.toLowerCase()));
+}
+
+const ANIME_GENRE_NAMES = ["animación", "animation", "animazione", "animation", "anime"];
+function isAnimeContent(genres?: string[] | null): boolean {
+  if (!genres) return false;
+  return genres.some((g) => ANIME_GENRE_NAMES.includes(g.toLowerCase()));
 }
 
 function fmt(n: number) {
@@ -110,7 +116,11 @@ export function ProviderModal({
   const providers = allProviders.filter((p) => ALLOWED_TYPES.has(p.type));
   const localeInfo = WATCH_LOCALES.find((l) => l.code === (country ?? "ES")) ?? WATCH_LOCALES.find((l) => l.code === "ES")!;
   const isMusic = isMusicContent(genres);
+  const isAnime = isAnimeContent(genres);
   const ytMusicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(title)}`;
+
+  const { data: kitsuResults, isLoading: isLoadingKitsu } = useKitsuSearch(title, isOpen && isAnime && !!title);
+  const kitsuMatch = kitsuResults?.[0] ?? null;
 
   const groupedProviders = TYPE_ORDER.reduce((acc, t) => {
     const group = providers.filter((p) => p.type === t);
@@ -376,6 +386,73 @@ export function ProviderModal({
                 </div>
                 <ExternalLink className="w-4 h-4 text-white/30 group-hover:text-white/70 transition-colors shrink-0" />
               </motion.a>
+            )}
+
+            {/* Kitsu anime metadata block — shown for anime content */}
+            {isAnime && (
+              <div className="rounded-2xl mb-5 overflow-hidden"
+                style={{ background: "linear-gradient(135deg, rgba(255,107,0,0.08) 0%, rgba(180,60,0,0.05) 100%)", border: "1px solid rgba(255,107,0,0.18)" }}>
+                <div className="flex items-center gap-2 px-4 py-2.5"
+                  style={{ borderBottom: "1px solid rgba(255,107,0,0.10)" }}>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400/70">Kitsu · Datos de Anime</span>
+                </div>
+                {isLoadingKitsu ? (
+                  <div className="flex items-center gap-2 px-4 py-3">
+                    <Loader2 className="w-4 h-4 text-orange-400/50 animate-spin" />
+                    <span className="text-xs text-white/30">Buscando en Kitsu...</span>
+                  </div>
+                ) : kitsuMatch ? (
+                  <div className="p-4">
+                    <div className="flex gap-3">
+                      {kitsuMatch.poster && (
+                        <img src={kitsuMatch.poster} alt={kitsuMatch.title}
+                          className="w-12 h-16 rounded-xl object-cover shrink-0"
+                          style={{ border: "1px solid rgba(255,255,255,0.08)" }} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white leading-tight truncate">{kitsuMatch.title}</p>
+                        {kitsuMatch.titleJa && (
+                          <p className="text-[11px] text-white/35 mt-0.5 truncate">{kitsuMatch.titleJa}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {kitsuMatch.rating !== null && (
+                            <span className="flex items-center gap-1 text-[10px] text-white/50">
+                              <Star className="w-3 h-3 text-yellow-400/70" />{kitsuMatch.rating.toFixed(1)}/10
+                            </span>
+                          )}
+                          {kitsuMatch.episodeCount !== null && (
+                            <span className="text-[10px] text-white/40">{kitsuMatch.episodeCount} eps</span>
+                          )}
+                          {kitsuMatch.subtype && (
+                            <span className="text-[10px] text-orange-400/60 font-semibold uppercase">{kitsuMatch.subtype}</span>
+                          )}
+                          {kitsuMatch.status && (
+                            <span className={`text-[10px] font-medium ${kitsuMatch.status === "finished" ? "text-green-400/60" : "text-blue-400/60"}`}>
+                              {kitsuMatch.status === "finished" ? "Finalizado" : kitsuMatch.status === "current" ? "En emisión" : kitsuMatch.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <motion.a
+                      href={kitsuMatch.kitsuUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center justify-between w-full mt-3 px-3 py-2 rounded-xl text-xs font-semibold text-orange-300/80 hover:text-orange-300 transition-colors group"
+                      style={{ background: "rgba(255,107,0,0.08)", border: "1px solid rgba(255,107,0,0.15)" }}
+                    >
+                      <span>Ver en Kitsu.io</span>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    </motion.a>
+                  </div>
+                ) : (
+                  <div className="px-4 py-3">
+                    <p className="text-xs text-white/25">No se encontraron datos en Kitsu para este título.</p>
+                  </div>
+                )}
+              </div>
             )}
 
             {(isLoadingProviders && shouldFetchProviders) ? (

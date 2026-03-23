@@ -101,13 +101,14 @@ export function useDiscover(
     originLanguage?: string | null;
     alwaysEnabled?: boolean;
     sortBy?: string | null;
+    withProvider?: number | null;
   },
   options?: { query?: { enabled?: boolean } }
 ) {
-  const { type, country = "ES", genreId, genreIds, year, page = 1, originLanguage, alwaysEnabled, sortBy } = params;
-  const enabled = alwaysEnabled || !!(genreId || genreIds || year || originLanguage);
+  const { type, country = "ES", genreId, genreIds, year, page = 1, originLanguage, alwaysEnabled, sortBy, withProvider } = params;
+  const enabled = alwaysEnabled || !!(genreId || genreIds || year || originLanguage || withProvider);
   return useQuery({
-    queryKey: ["discover", type, country, genreId ?? null, genreIds ?? null, year ?? null, page, originLanguage ?? null, sortBy ?? null],
+    queryKey: ["discover", type, country, genreId ?? null, genreIds ?? null, year ?? null, page, originLanguage ?? null, sortBy ?? null, withProvider ?? null],
     queryFn: async () => {
       const u = new URL("/api/streaming/discover", window.location.origin);
       u.searchParams.set("type", type);
@@ -118,12 +119,44 @@ export function useDiscover(
       if (year) u.searchParams.set("year", year);
       if (originLanguage) u.searchParams.set("originLanguage", originLanguage);
       if (sortBy) u.searchParams.set("sortBy", sortBy);
+      if (withProvider) u.searchParams.set("withProvider", String(withProvider));
       const res = await fetch(u.toString());
       if (!res.ok) throw new Error("Failed to fetch discover results");
       return res.json() as Promise<{ results: DiscoverTitle[]; page: number; totalPages: number }>;
     },
     enabled: enabled && options?.query?.enabled !== false,
     staleTime: 3 * 60 * 1000,
+  });
+}
+
+// ── Kitsu anime metadata ──
+export interface KitsuAnime {
+  id: string;
+  title: string;
+  titleJa: string | null;
+  synopsis: string | null;
+  episodeCount: number | null;
+  episodeLength: number | null;
+  status: string | null;
+  rating: number | null;
+  poster: string | null;
+  cover: string | null;
+  subtype: string | null;
+  ageRating: string | null;
+  kitsuUrl: string;
+}
+
+export function useKitsuSearch(title: string, enabled = true) {
+  return useQuery({
+    queryKey: ["kitsu", title],
+    queryFn: async () => {
+      const res = await fetch(`/api/streaming/kitsu?q=${encodeURIComponent(title)}`);
+      if (!res.ok) throw new Error("Kitsu error");
+      const json = await res.json() as { data: KitsuAnime[] };
+      return json.data;
+    },
+    enabled: enabled && title.length > 0,
+    staleTime: 30 * 60 * 1000,
   });
 }
 

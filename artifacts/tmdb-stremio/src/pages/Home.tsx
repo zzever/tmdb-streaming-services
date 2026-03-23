@@ -29,6 +29,7 @@ import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion, AnimatePresence } from "framer-motion";
 import { LiveTV } from "@/components/LiveTV";
+import { YouTubeMusicPlayer } from "@/components/YouTubeMusicPlayer";
 
 const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
@@ -373,6 +374,61 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: "vote_average.asc",             label: "Peor nota" },
 ];
 
+// ── Streaming service providers (TMDB IDs for Spain) ────────────
+interface StreamingService { id: number; name: string; logo: string; color: string }
+const STREAMING_SERVICES: StreamingService[] = [
+  { id: 8,    name: "Netflix",       logo: "https://image.tmdb.org/t/p/w45/wwemzKWzjKYJFfCeiB57q3r4Bcm.png", color: "#e50914" },
+  { id: 119,  name: "Prime Video",   logo: "https://image.tmdb.org/t/p/w45/ifhbNuuVnlwYy5oXA5VIb2YR8AZ.png", color: "#00a8e1" },
+  { id: 337,  name: "Disney+",       logo: "https://image.tmdb.org/t/p/w45/7rwgEs15tFwyR9NPQ5vpzxTj19d.png", color: "#1d3678" },
+  { id: 1899, name: "Max",           logo: "https://image.tmdb.org/t/p/w45/Ajqyt5aNxNx9io3saSNiTt16F7I.png", color: "#002be7" },
+  { id: 350,  name: "Apple TV+",     logo: "https://image.tmdb.org/t/p/w45/peURlLlr8jggOwK53fJ5wdQl05y.png", color: "#555" },
+  { id: 283,  name: "Crunchyroll",   logo: "https://image.tmdb.org/t/p/w45/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.png", color: "#f47521" },
+  { id: 63,   name: "Filmin",        logo: "https://image.tmdb.org/t/p/w45/5GnxZMQmtEBSrJIvKSNEaijDlXN.png", color: "#ff5c5c" },
+  { id: 149,  name: "Movistar+",     logo: "https://image.tmdb.org/t/p/w45/iFlBWMMqaKJiMXkDCYiKL6MXgzU.png", color: "#00adef" },
+  { id: 576,  name: "Mitele",        logo: "https://image.tmdb.org/t/p/w45/km1pqCuXxStkaIg5v5cMkp2ViQ4.png", color: "#e30613" },
+];
+
+interface ServiceChipsProps {
+  selected: number | null;
+  onSelect: (id: number | null) => void;
+  type?: ContentType;
+}
+
+function StreamingServiceChips({ selected, onSelect }: ServiceChipsProps) {
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      <button
+        onClick={() => onSelect(null)}
+        className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
+          selected === null
+            ? "text-white bg-white/12 border-white/15"
+            : "text-white/35 hover:text-white/65 border-transparent hover:border-white/10"
+        }`}
+      >
+        Todas las plataformas
+      </button>
+      {STREAMING_SERVICES.map((svc) => (
+        <button
+          key={svc.id}
+          onClick={() => onSelect(selected === svc.id ? null : svc.id)}
+          title={svc.name}
+          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
+            selected === svc.id
+              ? "text-white border-white/20"
+              : "text-white/50 hover:text-white/80 border-transparent hover:border-white/10"
+          }`}
+          style={selected === svc.id ? { background: `${svc.color}22`, borderColor: `${svc.color}55` } : {}}
+        >
+          <img src={svc.logo} alt={svc.name} className="w-4 h-4 rounded object-cover shrink-0"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          {svc.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Main types ──────────────────────────────────────────────────
 type ViewMode = "browse" | "lists" | "releases" | "live" | "watchlist";
 type AnyMedia = PopularTitle | SearchResult | ReleaseTitle | DiscoverTitle;
@@ -401,6 +457,7 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [accumulatedResults, setAccumulatedResults] = useState<any[]>([]);
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
   const { lists } = useLists();
@@ -413,7 +470,7 @@ export default function Home() {
     activeContentType === "movie" || activeContentType === "musica" ? "movie" : "series";
 
   const isSearching = debouncedQuery.length > 2;
-  const isFiltering = !isSearching && selectedGenreId !== null;
+  const isFiltering = !isSearching && (selectedGenreId !== null || selectedProvider !== null);
   const isAnime = activeContentType === "anime";
   const isPrograma = activeContentType === "programa";
   const isMusica = activeContentType === "musica";
@@ -423,7 +480,7 @@ export default function Home() {
   useEffect(() => {
     setPage(1);
     setAccumulatedResults([]);
-  }, [activeContentType, selectedGenreId, debouncedQuery, sortBy, locale.code]);
+  }, [activeContentType, selectedGenreId, selectedProvider, debouncedQuery, sortBy, locale.code]);
 
   // Popular (movie/series only, not special tabs)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
@@ -433,7 +490,7 @@ export default function Home() {
 
   // Genre filter for movie/series (with sort)
   const { data: discoverData, isLoading: isLoadingDiscover } = useDiscover(
-    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page, sortBy: isFiltering ? sortBy : undefined },
+    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page, sortBy: isFiltering ? sortBy : undefined, withProvider: selectedProvider },
     { query: { enabled: isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
@@ -499,10 +556,11 @@ export default function Home() {
     : isFiltering ? isLoadingDiscover
     : isLoadingPopular;
 
-  // Change type: reset genre filter
+  // Change type: reset genre/provider filter
   const handleTypeChange = useCallback((ct: ContentType) => {
     setActiveContentType(ct);
     setSelectedGenreId(null);
+    setSelectedProvider(null);
   }, []);
 
   // Random button — fetches from a random page beyond the top 20
@@ -641,7 +699,7 @@ export default function Home() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mb-5 overflow-hidden"
+              className="mb-4 overflow-hidden"
             >
               <div className="flex items-center gap-3">
                 <GenreChips type={tmdbType} selectedId={selectedGenreId} onSelect={setSelectedGenreId} />
@@ -659,6 +717,28 @@ export default function Home() {
               {activeGenreName && (
                 <p className="text-xs text-white/30 mt-2 pl-6">
                   Mostrando <span className="text-white/55 font-semibold">{activeGenreName}</span> con disponibilidad en España
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Streaming service selector (movie/series only, no search) ── */}
+        <AnimatePresence>
+          {viewMode === "browse" && !isSearching && !isSpecialBrowse && (
+            <motion.div
+              key="service-chips"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-5 overflow-hidden"
+            >
+              <StreamingServiceChips selected={selectedProvider} onSelect={setSelectedProvider} />
+              {selectedProvider !== null && (
+                <p className="text-xs text-white/30 mt-2">
+                  Filtrando por <span className="text-white/55 font-semibold">
+                    {STREAMING_SERVICES.find((s) => s.id === selectedProvider)?.name ?? "plataforma"}
+                  </span>{activeGenreName ? ` · ${activeGenreName}` : ""}
                 </p>
               )}
             </motion.div>
@@ -708,6 +788,22 @@ export default function Home() {
             )}
           </div>
         )}
+
+        {/* ── YouTube Music Player (Música tab only) ── */}
+        <AnimatePresence>
+          {viewMode === "browse" && isMusica && (
+            <motion.div
+              key="yt-music-player"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.3 }}
+              className="mb-8"
+            >
+              <YouTubeMusicPlayer />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Browse / search grid ── */}
         {viewMode === "browse" && (

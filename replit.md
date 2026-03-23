@@ -62,12 +62,14 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 React + Vite frontend. Preview path: `/` (root).
 
 **Tabs:**
-- **Películas** — popular movies in selected country, genre filter chips
-- **Series** — popular TV series in selected country, genre filter chips
-- **Anime** — Japanese animation (genre 16 + originLanguage=ja), no genre chips
+- **Películas** — popular movies in selected country, genre filter chips + streaming service selector chips (9 platforms: Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll, Filmin, Movistar+, Mitele)
+- **Series** — popular TV series in selected country, genre filter chips + streaming service selector
+- **Anime** — Japanese animation (genre 16 + originLanguage=ja), no genre chips; ProviderModal shows Kitsu metadata panel (title, poster, episodes, rating, status, link to Kitsu.io)
 - **Programas** — Spanish-language documentaries/reality/talk shows (genres 99|10764|10767 + originLanguage=es), no genre chips
+- **Música** — music movies/documentaries (genre 10402); YouTube Music player at top (song/artist/album search modes, embedded YouTube IFrame, link to YouTube Music)
 - **Estrenos** — upcoming/recent releases; sub-tabs: Cinema (release type 2/3) vs Streaming (release type 4); ReleaseCard with backdrop hover crossfade animation
 - **TV en Directo** — 213 Spanish live TV channels from M3U playlist; group filter chips; HLS player via hls.js; fallback to VLC/copy URL on CORS error
+- **Favoritos** — watchlist/saved titles
 - **Mis Listas** — import a MDBList or Trakt list by URL
 
 **Key files:**
@@ -95,7 +97,8 @@ Express 5 API server. Entry: `src/index.ts`. App: `src/app.ts`. Routes at `/api`
 - `GET /api/streaming/providers?imdbId&type&country` — watch providers + JustWatch direct URLs
 - `GET /api/streaming/search?query&type` — TMDB multi/movie/tv search
 - `GET /api/streaming/popular?type&country&page` — popular titles for country
-- `GET /api/streaming/discover?type&country&genreId&year&originLanguage&sortBy&withoutGenres&page` — TMDB discover with filters
+- `GET /api/streaming/discover?type&country&genreId&year&originLanguage&sortBy&withoutGenres&withProvider&page` — TMDB discover with filters; `withProvider` = TMDB provider ID (e.g. 8=Netflix, 119=Prime)
+- `GET /api/streaming/kitsu?q=` — Kitsu.io anime metadata proxy; returns title, poster, episodes, rating, status, kitsuUrl
 - `GET /api/streaming/releases?type&country&mode&releaseType` — upcoming/recent releases; `releaseType`: `theater|streaming|any`
 - `GET /api/streaming/random?type&country` — random popular title
 - `GET /api/streaming/person?name` — person filmography + role detection (actor vs director)

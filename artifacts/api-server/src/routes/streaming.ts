@@ -321,10 +321,10 @@ router.get("/streaming/discover", async (req, res) => {
   const genreId = String(req.query.genreId ?? "");
   const year = String(req.query.year ?? "");
   const page = String(req.query.page ?? "1");
-  // Extra: originLanguage (e.g. "ja" for anime), withoutGenres (pipe-sep genre IDs to exclude)
   const originLanguage = String(req.query.originLanguage ?? "");
   const withoutGenres = String(req.query.withoutGenres ?? "");
   const sortBy = String(req.query.sortBy ?? "popularity.desc");
+  const withProvider = String(req.query.withProvider ?? ""); // TMDB provider ID
 
   try {
     const path = type === "series" ? "/discover/tv" : "/discover/movie";
@@ -337,6 +337,7 @@ router.get("/streaming/discover", async (req, res) => {
     if (genreId) params.with_genres = genreId;
     if (withoutGenres) params.without_genres = withoutGenres;
     if (originLanguage) params.with_original_language = originLanguage;
+    if (withProvider) params.with_watch_providers = withProvider;
     if (year) {
       if (type === "movie") {
         params.primary_release_year = year;
@@ -614,6 +615,46 @@ router.get("/streaming/live-channels", (req, res) => {
     .sort((a, b) => b.count - a.count);
 
   res.json({ channels, groups, total: (channelsData as any[]).length });
+});
+
+// Kitsu anime metadata proxy — searches Kitsu.io by title
+router.get("/streaming/kitsu", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (!q) { res.json({ data: [] }); return; }
+
+  try {
+    const url = new URL("https://kitsu.io/api/edge/anime");
+    url.searchParams.set("filter[text]", q);
+    url.searchParams.set("page[limit]", "5");
+    url.searchParams.set("fields[anime]", "canonicalTitle,titles,synopsis,episodeCount,episodeLength,status,posterImage,coverImage,averageRating,popularityRank,ageRating,subtype");
+
+    const resp = await fetch(url.toString(), {
+      headers: { Accept: "application/vnd.api+json", "Content-Type": "application/vnd.api+json" },
+    });
+    if (!resp.ok) throw new Error(`Kitsu error ${resp.status}`);
+    const json = await resp.json() as any;
+
+    const data = (json.data ?? []).map((item: any) => ({
+      id: item.id,
+      title: item.attributes?.canonicalTitle ?? item.attributes?.titles?.en ?? "",
+      titleJa: item.attributes?.titles?.ja_jp ?? null,
+      synopsis: item.attributes?.synopsis ?? null,
+      episodeCount: item.attributes?.episodeCount ?? null,
+      episodeLength: item.attributes?.episodeLength ?? null,
+      status: item.attributes?.status ?? null,
+      rating: item.attributes?.averageRating ? parseFloat(item.attributes.averageRating) / 10 : null,
+      poster: item.attributes?.posterImage?.medium ?? item.attributes?.posterImage?.small ?? null,
+      cover: item.attributes?.coverImage?.large ?? null,
+      subtype: item.attributes?.subtype ?? null,
+      ageRating: item.attributes?.ageRating ?? null,
+      kitsuUrl: `https://kitsu.io/anime/${item.id}`,
+    }));
+
+    res.json({ data });
+  } catch (err) {
+    req.log.error({ err }, "Kitsu search error");
+    res.json({ data: [] });
+  }
 });
 
 export default router;
