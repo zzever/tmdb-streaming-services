@@ -68,7 +68,7 @@ React + Vite frontend. Preview path: `/` (root).
 - **Programas** — Spanish-language documentaries/reality/talk shows (genres 99|10764|10767 + originLanguage=es), no genre chips
 - **Música** — music movies/documentaries (genre 10402); YouTube Music player at top (song/artist/album search modes, embedded YouTube IFrame, link to YouTube Music); concert archive sources (Archive.org inline, Etree/shnflac/DiMeADozen/OPS external chips)
 - **Estrenos** — upcoming/recent releases; sub-tabs: Cinema (release type 2/3) vs Streaming (release type 4); ReleaseCard with backdrop hover crossfade animation
-- **TV en Directo** — 213 Spanish live TV channels from M3U playlist; group filter chips; HLS player via hls.js; fallback to VLC/copy URL on CORS error
+- **TV en Directo** — ~1.270 live channels (TV + Radio): TV from tdtchannels.com API grouped as General/News/Sports/Kids/Entertainment/Regional + bouquet files (España Extra, USA, Música); Radio from tdtchannels.com M3U; group filter chips; HLS player via hls.js; fallback to VLC/copy URL on CORS error; EPG current/next program display
 - **Favoritos** — watchlist/saved titles (persisted in localStorage)
 - **Vistos** — historial de vistos; eye button on each card; sortable by recent/title/rating/type; episode counter for series
 - **Mis Listas** — import a MDBList or Trakt list by URL
@@ -120,9 +120,9 @@ Express 5 API server. Entry: `src/index.ts`. App: `src/app.ts`. Routes at `/api`
 - `GET /api/stremio/meta/:type/:id.json` — Stremio meta
 
 **Key lib files:**
-- `src/lib/tmdb.ts` — TMDB API wrapper: `tmdbFetch`, `getPopular`, `searchTmdb`, `getWatchProviders`, `mapProviders`, `getTitleRichDetails`, `findTmdbId`, `getImdbId`, `mapGenres`, `posterUrl`, `backdropUrl`
+- `src/lib/tmdb.ts` — TMDB API wrapper: `tmdbFetch`, `getPopular`, `searchTmdb`, `getWatchProviders`, `mapProviders`, `getTitleRichDetails`, `findTmdbId`, `getImdbId`, `mapGenres`, `posterUrl`, `backdropUrl`; `fetchFilmAffinityRating(title, year, director?)` — server-side FA globalsearch with director-aware query; returns `faRating`, `faUrl`, `faVotes` or null
 - `src/lib/justwatch.ts` — JustWatch GraphQL client: `getJWDirectOffers` returning direct platform URLs
-- `src/lib/live-channels.ts` — TDT channels (TV + radio): fetches `tdtchannels.com/lists/tv.json` + radio M3U dynamically; 6h TTL cache; maps Spanish ambits to English group categories
+- `src/lib/live-channels.ts` — TDT channels (TV + radio): fetches `tdtchannels.com/lists/tv.json` + radio M3U dynamically; 6h TTL cache; maps Spanish ambits to English group categories; `sanitizeChannelUrl()` removes embed/dead channels; `deduplicateChannels()` merges by URL+name
 - `src/lib/epg.ts` — EPG loader: plain XML sources + gzip (TDT `TV.xml.gz` via `gunzipSync`); `ensureEpg()`, `getCurrentAndNext(tvgId)`, `getEpgCacheSize()`
 
 ## Stremio Addon (v2.12.0)
@@ -139,7 +139,7 @@ Manifest ID: `community.tmdb-streaming-es`
 - `crunchyroll-anime-movies/movie` — 🦊 Anime Crunchyroll · Películas
 - `programas-es/series` — 📺 Programas y Docs en España (genres 99|10764|10767 + originLanguage=es)
 - `musica-es/movie` — 🎵 Música y Conciertos (genre 10402)
-- `live-es/tv` — 📡 TV en Directo España (213 HLS channels)
+- `live-es/tv` — 📡 TV en Directo España (~1.270 channels: TV + Radio, sanitized)
 - `estrenos-streaming-es/movie` — 🆕 Nuevos en Streaming España (last 60 days by release date)
 - `estrenos-streaming-es/series` — 🆕 Nuevas Series en Streaming España
 - `actor-es/movie` — 🎭 Por Actor (search-based; ?search=nombre)
