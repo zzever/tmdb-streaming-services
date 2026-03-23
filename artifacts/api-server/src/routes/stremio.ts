@@ -247,6 +247,30 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       });
     }
 
+    // If Prime Video or Atresmedia is available and Movistar+ is NOT already in results,
+    // add a Movistar+ search link (Movistar+ bundles Prime Video and ATRESplayer Premium)
+    if (title) {
+      const PRIME_NAMES  = ["amazon prime video", "amazon video", "prime video"];
+      const ATRES_NAMES  = ["atresmedia", "atresplayer", "antena 3", "la sexta"];
+      const MPLUS_HOSTS  = ["ver.movistarplus.es", "wl.movistarplus.es", "movistarplus.es"];
+
+      const hasPrimeOrAtres = sorted.some((p) => {
+        const n = p.name.toLowerCase();
+        return PRIME_NAMES.some((k) => n.includes(k)) || ATRES_NAMES.some((k) => n.includes(k));
+      });
+      const hasMovistar = [...seenUrls].some((u) => MPLUS_HOSTS.some((h) => u.includes(h)));
+
+      if (hasPrimeOrAtres && !hasMovistar) {
+        const movistarSearchUrl = `https://ver.movistarplus.es/busqueda/?q=${encodeURIComponent(title)}`;
+        streams.push({
+          name: "🇪🇸 Movistar+",
+          title: `🔍 Buscar en Movistar+`,
+          externalUrl: movistarSearchUrl,
+          behaviorHints: { bingeGroup: "flatrate-Movistar+" },
+        });
+      }
+    }
+
     // If Music genre (10402) — add YouTube Music search link
     const genres: number[] = (tmdbDetails as any)?.genres?.map((g: any) => g.id) ?? [];
     if (genres.includes(10402) && title) {
