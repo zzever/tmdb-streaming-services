@@ -33,9 +33,20 @@ const MPLUS_LOGO = "https://image.tmdb.org/t/p/w185/f6TRLB3H4jDpFEZ0z2KWSSvu1SB.
 const ATRES_NAMES_WEB = ["atres player", "atresplayer", "atresmedia", "antena 3", "la sexta"];
 const PRIME_NAMES_WEB  = ["amazon prime video", "amazon video", "prime video"];
 
+// Build proper Movistar+ search URL with mode=VODRU7D (7-day recordings search)
+function mplusSearchUrl(title: string, type: "series" | "movie" = "series"): string {
+  const MPLUS_RIGHTS = "UTE0H%2CUTXC0%2CUTXIG%2CUTXIH%2CUTXIJ%2CUTXIK%2CUTXIL%2CTVRECS";
+  return (
+    `https://ver.movistarplus.es/busqueda?accountnumber=38100003194440-TEF&profile=OTT` +
+    `&term=${encodeURIComponent(title)}&mode=VODRU7D&showSeries=${type}` +
+    `&distilledTvRights=${MPLUS_RIGHTS}&v=10&mdrm=true&tlsstream=true&demarcation=37`
+  );
+}
+
 function injectMovistarProviders(
   providers: Array<{ name: string; logo?: string | null; type: string; providerId: number; watchUrl: string; tmdbUrl?: string }>,
-  title: string
+  title: string,
+  mediaType: "series" | "movie" = "series"
 ) {
   const names = providers.map((p) => p.name.toLowerCase());
   const hasMovistar = names.some((n) => n.includes("movistar"));
@@ -49,7 +60,7 @@ function injectMovistarProviders(
       logo: MPLUS_LOGO,
       type: "flatrate",
       providerId: 149,
-      watchUrl: `https://ver.movistarplus.es/busqueda/?q=${encodeURIComponent(title)}`,
+      watchUrl: mplusSearchUrl(title, mediaType),
     });
   }
 
@@ -61,7 +72,7 @@ function injectMovistarProviders(
       logo: MPLUS_LOGO,
       type: "flatrate",
       providerId: 149,
-      watchUrl: `https://ver.movistarplus.es/grabaciones/busqueda/?q=${encodeURIComponent(title)}`,
+      watchUrl: mplusSearchUrl(title, mediaType),
     });
   }
 
@@ -108,7 +119,7 @@ router.get("/streaming/providers-by-tmdb", async (req, res) => {
       }
     }
 
-    if (title) injectMovistarProviders(mapped, title);
+    if (title) injectMovistarProviders(mapped, title, mediaType as "series" | "movie");
 
     res.json({
       imdbId: imdbId ?? null,
@@ -166,7 +177,7 @@ router.get("/streaming/providers", async (req, res) => {
       }
     }
 
-    if (title) injectMovistarProviders(mapped, title);
+    if (title) injectMovistarProviders(mapped, title, mediaType as "series" | "movie");
 
     res.json({
       imdbId,

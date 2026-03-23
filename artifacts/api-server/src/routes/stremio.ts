@@ -294,12 +294,17 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       );
       const hasMovistar = [...seenUrls].some((u) => MPLUS_HOSTS.some((h) => u.includes(h)));
 
+      const MPLUS_RIGHTS = "UTE0H%2CUTXC0%2CUTXIG%2CUTXIH%2CUTXIJ%2CUTXIK%2CUTXIL%2CTVRECS";
+      const mplusUrl = (term: string) =>
+        `https://ver.movistarplus.es/busqueda?accountnumber=38100003194440-TEF&profile=OTT` +
+        `&term=${encodeURIComponent(term)}&mode=VODRU7D&showSeries=${mediaType}` +
+        `&distilledTvRights=${MPLUS_RIGHTS}&v=10&mdrm=true&tlsstream=true&demarcation=37`;
+
       if (hasPrimeOrAtres && !hasMovistar) {
-        const movistarSearchUrl = `https://ver.movistarplus.es/busqueda/?q=${encodeURIComponent(title)}`;
         streams.push({
           name: "🇪🇸 Movistar+",
           title: `🔍 Buscar en Movistar+`,
-          externalUrl: movistarSearchUrl,
+          externalUrl: mplusUrl(title),
           behaviorHints: { bingeGroup: "flatrate-Movistar+" },
         });
       }
@@ -307,11 +312,10 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       // Movistar+ channels broadcast any kind of content (movies, series, shows) and record the last 7 days.
       // Show for any title with at least one stream — content may have aired on any Movistar+ channel.
       if (streams.length > 0) {
-        const grabacionesUrl = `https://ver.movistarplus.es/grabaciones/busqueda/?q=${encodeURIComponent(title)}`;
         streams.push({
           name: "🇪🇸 Movistar+",
           title: `📺 Grabaciones 7 días`,
-          externalUrl: grabacionesUrl,
+          externalUrl: mplusUrl(title),
           behaviorHints: { bingeGroup: "flatrate-Movistar+" },
         });
       }
