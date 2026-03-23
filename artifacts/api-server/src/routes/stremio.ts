@@ -70,6 +70,11 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
 
     const mapped = mapProviders(providers);
 
+    // Direct link to the series/movie page on TMDB (any episode links to the series)
+    const tmdbPageUrl = mediaType === "series"
+      ? `https://www.themoviedb.org/tv/${tmdbId}`
+      : `https://www.themoviedb.org/movie/${tmdbId}`;
+
     // Sort by type priority
     const sorted = [...mapped].sort(
       (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
@@ -81,9 +86,10 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
         name: `🇪🇸 ${p.name}`,
         title: `${meta.emoji} ${meta.label}\nVer en ${p.name}`,
         thumbnail: p.logo ?? undefined,
-        url: `https://www.themoviedb.org/provider/${p.providerId}`,
+        url: tmdbPageUrl,
         behaviorHints: {
           notWebReady: true,
+          externalUrl: tmdbPageUrl,
           bingeGroup: `${p.type}-${p.name}`,
         },
       };
