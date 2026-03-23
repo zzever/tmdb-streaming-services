@@ -288,6 +288,7 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
         ...(providersResult ? mapProviders(providersResult.data, providersResult.watchUrl).map((p) => p.name.toLowerCase()) : []),
         ...jwOffers.map((o) => o.providerName.toLowerCase()),
       ];
+      const hasAtres = allProviderNames.some((n) => ATRES_NAMES.some((k) => n.includes(k)));
       const hasPrimeOrAtres = allProviderNames.some(
         (n) => PRIME_NAMES.some((k) => n.includes(k)) || ATRES_NAMES.some((k) => n.includes(k))
       );
@@ -299,6 +300,17 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
           name: "🇪🇸 Movistar+",
           title: `🔍 Buscar en Movistar+`,
           externalUrl: movistarSearchUrl,
+          behaviorHints: { bingeGroup: "flatrate-Movistar+" },
+        });
+      }
+
+      // Movistar+ recordings (last 7 days) — available when Movistar+ has VOD or Atres channels air there
+      if (hasMovistar || hasAtres) {
+        const grabacionesUrl = `https://ver.movistarplus.es/grabaciones/busqueda/?q=${encodeURIComponent(title)}`;
+        streams.push({
+          name: "🇪🇸 Movistar+",
+          title: `📺 Grabaciones 7 días`,
+          externalUrl: grabacionesUrl,
           behaviorHints: { bingeGroup: "flatrate-Movistar+" },
         });
       }

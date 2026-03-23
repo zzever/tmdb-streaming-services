@@ -154,22 +154,6 @@ export function ProviderModal({
   return (
     <>
     <Dialog isOpen={isOpen} onClose={onClose}>
-      {/* Trailer overlay */}
-      {trailerOpen && details?.trailerKey && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setTrailerOpen(false)}
-        >
-          <div className="w-full max-w-3xl aspect-video rounded-2xl overflow-hidden shadow-2xl">
-            <iframe
-              src={`https://www.youtube.com/embed/${details.trailerKey}?autoplay=1`}
-              allow="autoplay; fullscreen"
-              className="w-full h-full"
-            />
-          </div>
-        </div>
-      )}
-
       <div className="relative">
         {/* Hero backdrop — trailer video (muted autoplay) or still image */}
         <div className="absolute inset-0 h-80 w-full overflow-hidden pointer-events-none">
