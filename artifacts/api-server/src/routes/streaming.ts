@@ -7,6 +7,7 @@ import {
 import {
   findTmdbId,
   getTmdbTitle,
+  getImdbId,
   getWatchProviders,
   mapProviders,
   searchTmdb,
@@ -131,18 +132,18 @@ router.get("/streaming/popular", async (req, res) => {
 
     const mapped = await Promise.all(
       results.slice(0, 20).map(async (r) => {
-        let providers: ReturnType<typeof mapProviders> = [];
-        try {
-          const providersResult = await getWatchProviders(r.id, mediaType, country);
-          if (providersResult) {
-            providers = mapProviders(providersResult.data, providersResult.watchUrl, r.id, mediaType, country);
-          }
-        } catch {
-          providers = [];
-        }
+        // Fetch IMDB ID and watch providers in parallel
+        const [imdbId, providersResult] = await Promise.all([
+          getImdbId(r.id, mediaType).catch(() => null),
+          getWatchProviders(r.id, mediaType, country).catch(() => null),
+        ]);
+
+        const providers = providersResult
+          ? mapProviders(providersResult.data, providersResult.watchUrl, r.id, mediaType, country)
+          : [];
 
         return {
-          imdbId: null,
+          imdbId: imdbId ?? null,
           tmdbId: r.id,
           title: r.title || r.name || "",
           type: mediaType === "series" ? "series" : "movie",
