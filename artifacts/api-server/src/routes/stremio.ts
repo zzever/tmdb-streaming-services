@@ -4,13 +4,18 @@ import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
 
-// Resolve the public-facing base URL of the API from Replit proxy headers or env var
+// Resolve the public-facing base URL of the API from the actual request host.
+// x-forwarded-host is always correct (dev proxy or production deployment).
+// Only fall back to REPLIT_DEV_DOMAIN when no forwarded header is present.
 function getApiBase(req: { get: (h: string) => string | undefined; protocol: string }): string {
+  const fwdHost  = req.get("x-forwarded-host");
+  const fwdProto = req.get("x-forwarded-proto") ?? "https";
+  if (fwdHost) return `${fwdProto}://${fwdHost}`;
+
   const domain = process.env.REPLIT_DEV_DOMAIN;
   if (domain) return `https://${domain}`;
-  const host  = req.get("x-forwarded-host") ?? req.get("host") ?? "localhost";
-  const proto = req.get("x-forwarded-proto") ?? req.protocol;
-  return `${proto}://${host}`;
+
+  return `${req.protocol}://${req.get("host") ?? "localhost"}`;
 }
 
 const manifest = {
