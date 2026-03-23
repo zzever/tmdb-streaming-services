@@ -363,13 +363,14 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
       }, "series");
 
     } else if (catalogId === "programas-es") {
-      // Programas: Documentaries (99), Reality (10764), Talk Shows (10767)
+      // Programas: Documentaries (99), Reality (10764), Talk Shows (10767) — Spanish-language only
       metas = await discoverMetas("/discover/tv", {
         page: "1",
         sort_by: "popularity.desc",
         watch_region: COUNTRY,
         with_watch_monetization_types: "flatrate|free|ads",
         with_genres: "99|10764|10767",
+        with_original_language: "es",
       }, "series");
 
     } else {

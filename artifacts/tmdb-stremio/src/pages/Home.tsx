@@ -416,9 +416,9 @@ export default function Home() {
     { query: { enabled: isAnime && !isSearching && viewMode === "browse" } }
   );
 
-  // Programa discover — always fetches when on programa tab
+  // Programa discover — always fetches when on programa tab (Spanish-language content)
   const { data: programaData, isLoading: isLoadingPrograma } = useDiscover(
-    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, page: 1, alwaysEnabled: true },
+    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page: 1, alwaysEnabled: true },
     { query: { enabled: isPrograma && !isSearching && viewMode === "browse" } }
   );
 
