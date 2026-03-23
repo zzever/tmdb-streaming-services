@@ -344,7 +344,7 @@ export function ProviderModal({
                   Buscar en Stremio
                 </a>
                 <a
-                  href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(title + (year ? " " + year : ""))}`}
+                  href={`https://www.filmaffinity.com/es/advsearch.php?stext=${encodeURIComponent(title + (year ? " " + year : ""))}&stype%5B%5D=title&stype%5B%5D=director&stype%5B%5D=cast&stype%5B%5D=script&stype%5B%5D=photo`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:brightness-110 transition-all duration-200"
@@ -564,7 +564,7 @@ export function ProviderModal({
                       <div className="flex items-center justify-between mt-0.5">
                         <p className="text-[9px] text-white/30">{s.year || ""}</p>
                         <a
-                          href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(s.title + (s.year ? " " + s.year : ""))}`}
+                          href={`https://www.filmaffinity.com/es/advsearch.php?stext=${encodeURIComponent(s.title + (s.year ? " " + s.year : ""))}&stype%5B%5D=title&stype%5B%5D=director&stype%5B%5D=cast&stype%5B%5D=script&stype%5B%5D=photo`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}

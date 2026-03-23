@@ -185,7 +185,7 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
                       <div className="flex items-center justify-between mt-0.5">
                         <p className="text-[9px] text-white/25">{credit.year || ""}</p>
                         <a
-                          href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(credit.title + (credit.year ? " " + credit.year : ""))}`}
+                          href={`https://www.filmaffinity.com/es/advsearch.php?stext=${encodeURIComponent(credit.title + (credit.year ? " " + credit.year : ""))}&stype%5B%5D=title&stype%5B%5D=director&stype%5B%5D=cast&stype%5B%5D=script&stype%5B%5D=photo`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
