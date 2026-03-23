@@ -33,6 +33,102 @@ const TYPE_META: Record<string, { emoji: string; label: string }> = {
   buy:      { emoji: "🛒", label: "Compra" },
 };
 
+// Derive native-app deep-link scheme from a web URL
+function getNativeScheme(url: string): string | null {
+  // Netflix: nflx://title/{id}
+  const netflixMatch = url.match(/netflix\.com\/title\/([^/?#]+)/);
+  if (netflixMatch) return `nflx://title/${netflixMatch[1]}`;
+
+  // Disney+: disneyplus://{path}
+  if (url.includes("disneyplus.com")) {
+    return url.replace(/^https?:\/\/www\.disneyplus\.com/, "disneyplus://");
+  }
+
+  // HBO Max / Max
+  if (url.includes("hbomax.com") || url.includes("play.max.com")) {
+    return url.replace(/^https?:\/\/(play\.hbomax\.com|play\.max\.com)/, "hbomax://");
+  }
+
+  return null; // Prime, Apple TV, Rakuten, Google Play — web URL works as deep link
+}
+
+// Redirect page served to Stremio Web — tries native app then falls back to web
+router.get("/stremio/open", (req, res) => {
+  const rawUrl  = String(req.query.url  ?? "");
+  const rawName = String(req.query.name ?? "Streaming");
+
+  if (!rawUrl.startsWith("http")) {
+    res.status(400).send("Bad request");
+    return;
+  }
+
+  const native  = getNativeScheme(rawUrl);
+  const webUrl  = rawUrl;
+  const name    = rawName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const jsNative = native ? JSON.stringify(native) : "null";
+  const jsWeb    = JSON.stringify(webUrl);
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Abriendo ${name}…</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;background:#0f0f13;color:#fff;font-family:system-ui,sans-serif;
+         padding:24px;text-align:center}
+    .logo{font-size:48px;margin-bottom:16px}
+    h1{font-size:1.4rem;font-weight:700;margin-bottom:8px}
+    p{color:#aaa;font-size:.9rem;margin-bottom:28px}
+    a.btn{display:inline-block;padding:12px 28px;background:#e50914;color:#fff;
+          border-radius:6px;text-decoration:none;font-weight:600;font-size:1rem;
+          transition:opacity .2s}
+    a.btn:hover{opacity:.85}
+    .sub{margin-top:16px;font-size:.8rem;color:#666}
+    .spinner{width:36px;height:36px;border:3px solid #333;border-top-color:#e50914;
+             border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 20px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="spinner" id="sp"></div>
+  <div class="logo">🎬</div>
+  <h1>Abriendo ${name}…</h1>
+  <p id="msg">Intentando abrir la app…</p>
+  <a class="btn" href="${webUrl}" id="btn">Abrir en el navegador</a>
+  <p class="sub" id="sub"></p>
+  <script>
+    var native = ${jsNative};
+    var web    = ${jsWeb};
+    var btn    = document.getElementById('btn');
+    var msg    = document.getElementById('msg');
+    var sub    = document.getElementById('sub');
+    var sp     = document.getElementById('sp');
+
+    function goWeb() {
+      sp.style.display = 'none';
+      msg.textContent  = 'Redirigiendo al navegador…';
+      window.location.href = web;
+    }
+
+    if (native) {
+      // Try native deep link; fall back to web after 1.8s
+      try { window.location.href = native; } catch(e) {}
+      sub.textContent = 'Si la app no se abre, pulsa el botón.';
+      setTimeout(goWeb, 1800);
+    } else {
+      goWeb();
+    }
+  </script>
+</body>
+</html>`);
+});
+
 router.get("/stremio/manifest.json", (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
@@ -102,6 +198,9 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
     const seenUrls = new Set<string>();
     const streams: object[] = [];
 
+    // Base URL of this API server — used to build the /stremio/open redirect page URL
+    const apiBase = `${req.protocol}://${req.get("host")}`;
+
     for (const p of sorted) {
       const directUrl =
         jwUrlMap.get(`${p.name}::${p.type}`) ??
@@ -114,13 +213,17 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
 
       const meta = TYPE_META[p.type] ?? { emoji: "▶️", label: p.type };
 
+      // Point Stremio to our HTML redirect page — works in Stremio Web & Desktop
+      // The page tries the native-app deep link first, then falls back to the web URL
+      const redirectUrl = `${apiBase}/api/stremio/open?url=${encodeURIComponent(directUrl)}&name=${encodeURIComponent(p.name)}`;
+
       streams.push({
         name: `🇪🇸 ${p.name}`,
         title: `${meta.emoji} ${meta.label} · Ver en ${p.name}`,
         thumbnail: p.logo ?? undefined,
-        url: directUrl,
+        url: redirectUrl,
         behaviorHints: {
-          notWebReady: true,
+          notWebReady: false,   // Let Stremio Web load the redirect page
           externalUrl: directUrl,
           bingeGroup: `${p.type}-${p.name}`,
         },
