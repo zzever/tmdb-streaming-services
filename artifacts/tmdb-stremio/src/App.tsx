@@ -6,6 +6,7 @@ import { LocaleProvider } from "@/context/LocaleContext";
 import { ListsProvider } from "@/context/ListsContext";
 import Home from "@/pages/Home";
 import OpenSource from "@/pages/OpenSource";
+import SelfHost from "@/pages/SelfHost";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/open-source" component={OpenSource} />
+      <Route path="/self-host" component={SelfHost} />
       <Route component={NotFound} />
     </Switch>
   );

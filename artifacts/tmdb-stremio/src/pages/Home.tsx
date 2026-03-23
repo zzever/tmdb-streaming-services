@@ -298,6 +298,10 @@ export default function Home() {
             Código abierto
           </Link>
           <span className="text-white/10 text-[11px]">·</span>
+          <Link href="/self-host" className="text-[11px] text-white/20 hover:text-white/50 transition-colors">
+            Self-hosting
+          </Link>
+          <span className="text-white/10 text-[11px]">·</span>
           <p className="text-white/10 text-[11px] tracking-widest uppercase font-medium">
             designed by zzever
           </p>
