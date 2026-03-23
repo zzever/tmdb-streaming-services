@@ -85,9 +85,20 @@ export interface MappedProvider {
   tmdbUrl: string;
 }
 
-export function mapProviders(providers: TmdbWatchProviders): MappedProvider[] {
+export function mapProviders(
+  providers: TmdbWatchProviders,
+  tmdbId?: number,
+  mediaType?: "movie" | "series",
+): MappedProvider[] {
   const result: MappedProvider[] = [];
   const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'rent', 'buy', 'free', 'ads'];
+
+  // Build a direct link to the title page when we have the TMDB ID
+  const titleUrl = tmdbId
+    ? mediaType === "series"
+      ? `https://www.themoviedb.org/tv/${tmdbId}`
+      : `https://www.themoviedb.org/movie/${tmdbId}`
+    : null;
 
   for (const provType of types) {
     const items = providers[provType] as TmdbProvider[] | undefined;
@@ -99,7 +110,7 @@ export function mapProviders(providers: TmdbWatchProviders): MappedProvider[] {
         logo: logoPath,
         type: provType as string,
         providerId: prov.provider_id,
-        tmdbUrl: `https://www.themoviedb.org/watch/providers/movie?provider=${prov.provider_id}`,
+        tmdbUrl: titleUrl ?? `https://www.themoviedb.org/watch/providers/movie?provider=${prov.provider_id}`,
       });
     }
   }
