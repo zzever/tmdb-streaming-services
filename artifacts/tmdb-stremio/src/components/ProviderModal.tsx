@@ -14,9 +14,11 @@ interface ProviderModalProps {
   type: "movie" | "series";
   title: string;
   poster?: string | null;
+  backdrop?: string | null;
   overview?: string | null;
   rating?: number | null;
   year?: number | null;
+  genres?: string[] | null;
   country?: string;
   initialProviders?: StreamingProvider[];
 }
@@ -108,9 +110,11 @@ export function ProviderModal({
   type,
   title,
   poster,
+  backdrop,
   overview,
   rating,
   year,
+  genres,
   country,
   initialProviders,
 }: ProviderModalProps) {
@@ -136,16 +140,18 @@ export function ProviderModal({
   return (
     <Dialog isOpen={isOpen} onClose={onClose} className="overflow-hidden">
       <div className="relative">
-        {/* Cinematic blurred poster bg */}
-        <div className="absolute inset-0 h-[420px] w-full overflow-hidden pointer-events-none">
-          {poster && (
+        {/* Backdrop hero — wide fanart image with gradient overlay */}
+        <div className="absolute inset-0 h-[360px] w-full overflow-hidden pointer-events-none">
+          {(backdrop || poster) && (
             <img
-              src={getTmdbImage(poster, "original") || ""}
+              src={backdrop || getTmdbImage(poster, "original") || ""}
               alt=""
-              className="w-full h-full object-cover blur-3xl opacity-25 scale-110"
+              className="w-full h-full object-cover opacity-40 scale-105"
+              style={{ objectPosition: "center 20%" }}
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/85 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d16] via-[#0c0d16]/80 to-[#0c0d16]/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0c0d16]/60 via-transparent to-[#0c0d16]/60" />
         </div>
 
         <div className="relative z-10 p-6 sm:p-10">
@@ -182,10 +188,28 @@ export function ProviderModal({
                       {year}
                     </span>
                   )}
+                  {rating && rating > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium text-yellow-400 border border-yellow-400/20 bg-yellow-400/10 flex items-center gap-1">
+                      ★ {rating.toFixed(1)}
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-2xl sm:text-4xl font-display font-bold text-foreground mb-3 leading-tight">
                   {title}
                 </h2>
+                {genres && genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {genres.map((g) => (
+                      <span
+                        key={g}
+                        className="px-2.5 py-0.5 rounded-lg text-xs font-medium text-white/50"
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)" }}
+                      >
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {overview && (
                   <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl line-clamp-3">
                     {overview}

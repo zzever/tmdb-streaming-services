@@ -96,13 +96,27 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
       </div>
 
       {/* Info */}
-      <div className="px-3 py-2.5 flex flex-col gap-1" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      <div className="px-3 pt-2.5 pb-3 flex flex-col gap-1.5" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <h3 className="font-display font-semibold text-white/90 text-sm leading-tight line-clamp-1 group-hover:text-white transition-colors">
           {media.title}
         </h3>
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-white/35 font-medium">{media.year || "—"}</span>
-          <span className="text-[9px] uppercase tracking-widest font-semibold text-white/25 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5">
+        {/* Genres */}
+        {media.genres && media.genres.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {media.genres.slice(0, 2).map((g) => (
+              <span
+                key={g}
+                className="text-[9px] px-1.5 py-0.5 rounded-md font-medium text-white/40"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                {g}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="text-[11px] text-white/30 font-medium">{media.year || "—"}</span>
+          <span className="text-[9px] uppercase tracking-widest font-semibold text-white/20 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5">
             {media.type === "series" ? "Serie" : "Film"}
           </span>
         </div>

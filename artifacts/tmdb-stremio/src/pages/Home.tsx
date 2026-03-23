@@ -246,9 +246,11 @@ export default function Home() {
           type={selectedMedia.type as "movie" | "series"}
           title={selectedMedia.title}
           poster={selectedMedia.poster}
+          backdrop={selectedMedia.backdrop}
           overview={selectedMedia.overview}
           rating={selectedMedia.rating}
           year={selectedMedia.year}
+          genres={selectedMedia.genres}
           country={locale.code}
         />
       )}

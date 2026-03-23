@@ -35,8 +35,10 @@ export interface SearchResult {
   type: string;
   year?: number | null;
   poster?: string | null;
+  backdrop?: string | null;
   overview?: string | null;
   rating?: number | null;
+  genres?: string[] | null;
 }
 
 export interface SearchResponse {
@@ -51,8 +53,10 @@ export interface PopularTitle {
   type: string;
   year?: number | null;
   poster?: string | null;
+  backdrop?: string | null;
   overview?: string | null;
   rating?: number | null;
+  genres?: string[] | null;
   providers: StreamingProvider[];
 }
 

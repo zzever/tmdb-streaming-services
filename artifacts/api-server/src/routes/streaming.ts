@@ -14,6 +14,8 @@ import {
   getPopular,
   parseYear,
   posterUrl,
+  backdropUrl,
+  mapGenres,
 } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 
@@ -104,8 +106,10 @@ router.get("/streaming/search", async (req, res) => {
         type: resolvedType,
         year: parseYear(r),
         poster: posterUrl(r.poster_path),
+        backdrop: backdropUrl(r.backdrop_path),
         overview: r.overview || null,
         rating: r.vote_average ?? null,
+        genres: mapGenres(r.genre_ids),
       };
     });
 
@@ -149,8 +153,10 @@ router.get("/streaming/popular", async (req, res) => {
           type: mediaType === "series" ? "series" : "movie",
           year: parseYear(r),
           poster: posterUrl(r.poster_path),
+          backdrop: backdropUrl(r.backdrop_path),
           overview: r.overview || null,
           rating: r.vote_average ?? null,
+          genres: mapGenres(r.genre_ids),
           providers,
         };
       })

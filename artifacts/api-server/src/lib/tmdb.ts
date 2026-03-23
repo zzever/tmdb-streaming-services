@@ -24,10 +24,33 @@ export interface TmdbSearchResult {
   release_date?: string;
   first_air_date?: string;
   poster_path?: string | null;
+  backdrop_path?: string | null;
   overview?: string;
   vote_average?: number;
   media_type?: string;
+  genre_ids?: number[];
   external_ids?: { imdb_id?: string | null };
+}
+
+const TMDB_GENRE_MAP: Record<number, string> = {
+  28: "Acción", 12: "Aventura", 16: "Animación", 35: "Comedia",
+  80: "Crimen", 99: "Documental", 18: "Drama", 10751: "Familia",
+  14: "Fantasía", 36: "Historia", 27: "Terror", 10402: "Música",
+  9648: "Misterio", 10749: "Romance", 878: "Ciencia ficción",
+  10770: "Película de TV", 53: "Suspense", 10752: "Bélica", 37: "Western",
+  10759: "Acción y aventura", 10762: "Infantil", 10763: "Noticias",
+  10764: "Reality", 10765: "Sci-Fi y fantasía", 10766: "Telenovela",
+  10767: "Talk Show", 10768: "Política",
+};
+
+export function mapGenres(genreIds?: number[]): string[] {
+  if (!genreIds) return [];
+  return genreIds.slice(0, 3).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean);
+}
+
+export function backdropUrl(backdropPath: string | null | undefined): string | null {
+  if (!backdropPath) return null;
+  return `https://image.tmdb.org/t/p/w1280${backdropPath}`;
 }
 
 export async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
