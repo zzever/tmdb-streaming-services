@@ -110,7 +110,6 @@ export function SidebarLayout() {
           </button>
         </div>
       </aside>
-
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-white/8 flex items-center gap-4 bg-[#0a0a0f]/80 backdrop-blur-md">
@@ -135,7 +134,7 @@ export function SidebarLayout() {
               <div key={item.id} className="group cursor-pointer">
                 <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-2.5 bg-white/5">
                   <img src={item.poster} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pl-[6px] pr-[6px]" />
                   {/* Rating */}
                   <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-md px-1.5 py-0.5">
                     <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
