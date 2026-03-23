@@ -30,7 +30,7 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.7.0",
+  version: "2.8.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming en España. URLs directas vía JustWatch — Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll, Rakuten TV, Pluto TV, Filmin, Movistar+, Mitele y más. Anime con datos de Kitsu. YouTube Music para conciertos.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
@@ -49,7 +49,9 @@ const manifest = {
     { type: "movie",  id: "musica-es",    name: "🎵 Música y Conciertos" },
     { type: "series", id: "popular-es",   name: "🇪🇸 Series Populares en España" },
     { type: "series", id: "anime-es",     name: "🗾 Anime en España" },
-    { type: "series", id: "anime-movies-es", name: "🗾 Anime Películas" },
+    { type: "series", id: "crunchyroll-anime-series", name: "🦊 Anime Crunchyroll · Series" },
+    { type: "movie",  id: "crunchyroll-anime-movies", name: "🦊 Anime Crunchyroll · Películas" },
+    { type: "movie",  id: "anime-movies-es", name: "🗾 Anime Películas" },
     { type: "series", id: "programas-es", name: "📺 Programas y Docs en España" },
     { type: "tv",     id: "live-es",      name: "📡 TV en Directo España" },
   ],
@@ -385,6 +387,30 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         with_genres: "16",
         with_original_language: "ja",
       }, "series");
+
+    } else if (catalogId === "crunchyroll-anime-series") {
+      // Crunchyroll anime series specifically
+      metas = await discoverMetas("/discover/tv", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free",
+        with_genres: "16",
+        with_original_language: "ja",
+        with_watch_providers: "283",
+      }, "series");
+
+    } else if (catalogId === "crunchyroll-anime-movies") {
+      // Crunchyroll anime movies specifically
+      metas = await discoverMetas("/discover/movie", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free",
+        with_genres: "16",
+        with_original_language: "ja",
+        with_watch_providers: "283",
+      }, "movie");
 
     } else if (catalogId === "programas-es") {
       // Programas: Documentaries (99), Reality (10764), Talk Shows (10767) — Spanish-language only

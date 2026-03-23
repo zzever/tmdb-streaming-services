@@ -376,13 +376,15 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
 
 // ── Streaming service providers (TMDB IDs for Spain) ────────────
 interface StreamingService { id: number; name: string; short: string; color: string; bg: string }
+
+const CRUNCHYROLL_SERVICE: StreamingService = { id: 283, name: "Crunchyroll", short: "CR", color: "#f47521", bg: "rgba(244,117,33,0.13)" };
+
 const STREAMING_SERVICES: StreamingService[] = [
   { id: 8,    name: "Netflix",      short: "N",  color: "#e50914", bg: "rgba(229,9,20,0.15)" },
   { id: 119,  name: "Prime",        short: "P",  color: "#00a8e1", bg: "rgba(0,168,225,0.13)" },
   { id: 337,  name: "Disney+",      short: "D+", color: "#4f7ef8", bg: "rgba(79,126,248,0.13)" },
   { id: 1899, name: "Max",          short: "M",  color: "#6b7ef8", bg: "rgba(107,126,248,0.13)" },
   { id: 350,  name: "Apple TV+",    short: "Tv", color: "#a0a0a0", bg: "rgba(160,160,160,0.10)" },
-  { id: 283,  name: "Crunchyroll",  short: "CR", color: "#f47521", bg: "rgba(244,117,33,0.13)" },
   { id: 63,   name: "Filmin",       short: "Fi", color: "#ff5c5c", bg: "rgba(255,92,92,0.12)" },
   { id: 149,  name: "Movistar+",    short: "M+", color: "#00adef", bg: "rgba(0,173,239,0.12)" },
   { id: 35,   name: "Rakuten TV",   short: "R",  color: "#bf0000", bg: "rgba(191,0,0,0.13)" },
@@ -636,6 +638,7 @@ export default function Home() {
   const [accumulatedResults, setAccumulatedResults] = useState<any[]>([]);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
+  const [animeProvider, setAnimeProvider] = useState<number | null>(null);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
   const { lists } = useLists();
@@ -658,7 +661,7 @@ export default function Home() {
   useEffect(() => {
     setPage(1);
     setAccumulatedResults([]);
-  }, [activeContentType, selectedGenreId, selectedProvider, debouncedQuery, sortBy, locale.code]);
+  }, [activeContentType, selectedGenreId, selectedProvider, animeProvider, debouncedQuery, sortBy, locale.code]);
 
   // Popular (movie/series only, not special tabs)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
@@ -672,9 +675,9 @@ export default function Home() {
     { query: { enabled: isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
-  // Anime discover — always fetches when on anime tab
+  // Anime discover — always fetches when on anime tab (with optional Crunchyroll filter)
   const { data: animeData, isLoading: isLoadingAnime } = useDiscover(
-    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page, alwaysEnabled: true, sortBy: sortBy },
+    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page, alwaysEnabled: true, sortBy: sortBy, withProvider: animeProvider },
     { query: { enabled: isAnime && !isSearching && viewMode === "browse" } }
   );
 
@@ -739,6 +742,7 @@ export default function Home() {
     setActiveContentType(ct);
     setSelectedGenreId(null);
     setSelectedProvider(null);
+    setAnimeProvider(null);
   }, []);
 
   // Random button — fetches from a random page beyond the top 20
@@ -923,6 +927,75 @@ export default function Home() {
           )}
         </AnimatePresence>
 
+        {/* ── Crunchyroll filter for Anime tab ── */}
+        <AnimatePresence>
+          {viewMode === "browse" && isAnime && !isSearching && (
+            <motion.div
+              key="anime-provider-chip"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-5 overflow-hidden"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold shrink-0">Plataforma</span>
+                <button
+                  onClick={() => setAnimeProvider(null)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
+                    animeProvider === null
+                      ? "text-white border-white/20 bg-white/10"
+                      : "text-white/35 hover:text-white/65 border-white/[0.07] hover:border-white/15 bg-white/[0.03]"
+                  }`}
+                >
+                  Todas
+                </button>
+                {(() => {
+                  const svc = CRUNCHYROLL_SERVICE;
+                  const isSelected = animeProvider === svc.id;
+                  return (
+                    <button
+                      key={svc.id}
+                      onClick={() => setAnimeProvider(isSelected ? null : svc.id)}
+                      title={svc.name}
+                      className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
+                      style={{
+                        color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
+                        background: isSelected ? svc.bg : "rgba(255,255,255,0.03)",
+                        borderColor: isSelected ? svc.color + "60" : "rgba(255,255,255,0.07)",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          (e.currentTarget as HTMLButtonElement).style.background = svc.bg;
+                          (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
+                          (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
+                        }
+                      }}
+                    >
+                      <span
+                        className="flex items-center justify-center rounded text-[9px] font-black leading-none shrink-0"
+                        style={{ width: 22, height: 22, background: svc.color, color: "#fff", letterSpacing: "-0.02em" }}
+                      >
+                        {svc.short}
+                      </span>
+                      {svc.name}
+                    </button>
+                  );
+                })()}
+              </div>
+              {animeProvider !== null && (
+                <p className="text-xs text-white/30 mt-2">
+                  Mostrando anime disponible en <span className="text-white/55 font-semibold">Crunchyroll</span> en España
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Lists view ── */}
         {viewMode === "lists" && <ListsSection />}
 
@@ -975,16 +1048,28 @@ export default function Home() {
               <motion.div key={`${activeContentType}-${selectedGenreId}-${debouncedQuery}`}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-                  {displayedData.map((item, i) => (
-                    <motion.div key={`${item.tmdbId ?? item.id}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i, 11) * 0.03, duration: 0.35, ease: "easeOut" }}>
-                      <MediaCard media={item} onClick={setSelectedMedia} onGenreClick={(g) => {
-                        const genres = tmdbType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
-                        const found = genres.find((x) => x.name.toLowerCase() === g.toLowerCase());
-                        if (found && !isSpecialBrowse) { setSelectedGenreId(found.id); setViewMode("browse"); }
-                      }} />
-                    </motion.div>
-                  ))}
+                  {displayedData.map((item, i) => {
+                    // Inject provider badge for discover results (no providers field)
+                    const activeProviderSvc =
+                      !('providers' in item) && selectedProvider !== null
+                        ? STREAMING_SERVICES.find((s) => s.id === selectedProvider)
+                        : !('providers' in item) && isAnime && animeProvider !== null
+                          ? CRUNCHYROLL_SERVICE
+                          : undefined;
+                    const enrichedItem = activeProviderSvc
+                      ? { ...item, providers: [{ providerId: activeProviderSvc.id, name: activeProviderSvc.name, logo: null, type: "flatrate" }] }
+                      : item;
+                    return (
+                      <motion.div key={`${item.tmdbId ?? item.id}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i, 11) * 0.03, duration: 0.35, ease: "easeOut" }}>
+                        <MediaCard media={enrichedItem} onClick={setSelectedMedia} onGenreClick={(g) => {
+                          const genres = tmdbType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
+                          const found = genres.find((x) => x.name.toLowerCase() === g.toLowerCase());
+                          if (found && !isSpecialBrowse) { setSelectedGenreId(found.id); setViewMode("browse"); }
+                        }} />
+                      </motion.div>
+                    );
+                  })}
                 </div>
                 {canLoadMore && !isLoading && (
                   <div className="flex justify-center mt-8">
