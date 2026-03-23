@@ -86,6 +86,7 @@ export function ProviderModal({
   country, initialProviders,
 }: ProviderModalProps) {
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const [trailerLoaded, setTrailerLoaded] = useState(false);
   const [selectedSimilar, setSelectedSimilar] = useState<SimilarTitle | null>(null);
   const [selectedActorName, setSelectedActorName] = useState<string | null>(null);
 
@@ -430,6 +431,42 @@ export function ProviderModal({
         </div>
       </div>
     </Dialog>
+
+    {/* ── Trailer overlay ── */}
+    {trailerOpen && details?.trailerKey && (
+      <div
+        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+        style={{ background: "rgba(0,0,0,0.9)" }}
+        onClick={() => { setTrailerOpen(false); setTrailerLoaded(false); }}
+      >
+        <div
+          className="relative w-full max-w-3xl rounded-2xl overflow-hidden"
+          style={{ aspectRatio: "16/9", border: "1px solid rgba(255,255,255,0.1)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!trailerLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+              <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+            </div>
+          )}
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${details.trailerKey}?autoplay=1&rel=0&modestbranding=1`}
+            className="w-full h-full"
+            allow="autoplay; fullscreen"
+            allowFullScreen
+            onLoad={() => setTrailerLoaded(true)}
+            title={`Tráiler de ${title}`}
+          />
+          <button
+            onClick={() => { setTrailerOpen(false); setTrailerLoaded(false); }}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.15)" }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    )}
 
     {nestedSimilarModal}
 

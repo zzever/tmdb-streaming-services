@@ -100,13 +100,14 @@ export function useDiscover(
     page?: number;
     originLanguage?: string | null;
     alwaysEnabled?: boolean;
+    sortBy?: string | null;
   },
   options?: { query?: { enabled?: boolean } }
 ) {
-  const { type, country = "ES", genreId, genreIds, year, page = 1, originLanguage, alwaysEnabled } = params;
+  const { type, country = "ES", genreId, genreIds, year, page = 1, originLanguage, alwaysEnabled, sortBy } = params;
   const enabled = alwaysEnabled || !!(genreId || genreIds || year || originLanguage);
   return useQuery({
-    queryKey: ["discover", type, country, genreId ?? null, genreIds ?? null, year ?? null, page, originLanguage ?? null],
+    queryKey: ["discover", type, country, genreId ?? null, genreIds ?? null, year ?? null, page, originLanguage ?? null, sortBy ?? null],
     queryFn: async () => {
       const u = new URL("/api/streaming/discover", window.location.origin);
       u.searchParams.set("type", type);
@@ -116,6 +117,7 @@ export function useDiscover(
       if (genreIds) u.searchParams.set("genreId", genreIds);
       if (year) u.searchParams.set("year", year);
       if (originLanguage) u.searchParams.set("originLanguage", originLanguage);
+      if (sortBy) u.searchParams.set("sortBy", sortBy);
       const res = await fetch(u.toString());
       if (!res.ok) throw new Error("Failed to fetch discover results");
       return res.json() as Promise<{ results: DiscoverTitle[]; page: number; totalPages: number }>;
@@ -167,6 +169,27 @@ export function useLiveChannels(params?: { group?: string }) {
       }>;
     },
     staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ── EPG ──
+export interface EpgProgram { title: string; desc: string | null; start: number; stop: number; }
+export interface EpgResult { current: EpgProgram | null; next: EpgProgram | null; }
+
+export function useEpg(tvgIds: string[]) {
+  return useQuery({
+    queryKey: ["epg", tvgIds.slice().sort().join(",")],
+    queryFn: async (): Promise<Record<string, EpgResult>> => {
+      if (tvgIds.length === 0) return {};
+      const ids = tvgIds.slice(0, 50).join(",");
+      const res = await fetch(`/api/streaming/epg?ids=${encodeURIComponent(ids)}`);
+      if (!res.ok) throw new Error("EPG fetch failed");
+      const data = await res.json();
+      return data.epg ?? {};
+    },
+    enabled: tvgIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 

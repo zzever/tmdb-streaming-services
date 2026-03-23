@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LocaleProvider } from "@/context/LocaleContext";
 import { ListsProvider } from "@/context/ListsContext";
+import { WatchlistProvider } from "@/context/WatchlistContext";
 import Home from "@/pages/Home";
 import OpenSource from "@/pages/OpenSource";
 import SelfHost from "@/pages/SelfHost";
@@ -13,7 +14,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes cache
+      staleTime: 5 * 60 * 1000,
       retry: 1,
     },
   },
@@ -34,14 +35,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <LocaleProvider>
-        <ListsProvider>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-            <Toaster />
-          </TooltipProvider>
-        </ListsProvider>
+        <WatchlistProvider>
+          <ListsProvider>
+            <TooltipProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router />
+              </WouterRouter>
+              <Toaster />
+            </TooltipProvider>
+          </ListsProvider>
+        </WatchlistProvider>
       </LocaleProvider>
     </QueryClientProvider>
   );

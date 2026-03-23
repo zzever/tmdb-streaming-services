@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getTmdbImage } from "@/lib/utils";
-import { MonitorPlay, Star } from "lucide-react";
+import { MonitorPlay, Star, Heart } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
+import { useWatchlist } from "@/context/WatchlistContext";
 
 interface MediaCardProps {
   media: PopularTitle | SearchResult | any;
@@ -12,6 +13,8 @@ interface MediaCardProps {
 
 export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const { toggle, isInWatchlist } = useWatchlist();
+  const inList = media.id ? isInWatchlist(media.id) : false;
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
 
@@ -116,6 +119,34 @@ export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
 
         {/* Top gradient for badges */}
         <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none z-10" />
+
+        {/* Watchlist heart button */}
+        {media.id && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggle({
+                id: media.id,
+                type: media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie"),
+                title: media.title ?? media.name ?? "",
+                poster: media.poster ?? null,
+                backdrop: media.backdrop ?? null,
+                rating: media.rating ?? null,
+                year: media.year ?? null,
+                genres: media.genres ?? null,
+                overview: media.overview ?? null,
+              });
+            }}
+            className={`absolute bottom-2 right-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+              inList
+                ? "opacity-100 bg-red-500/80 border-red-400/50"
+                : "opacity-0 group-hover:opacity-100 bg-black/60 border-white/10"
+            } border backdrop-blur-sm hover:scale-110`}
+            title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
+          >
+            <Heart className={`w-3.5 h-3.5 ${inList ? "fill-white text-white" : "text-white/70"}`} />
+          </button>
+        )}
 
         {/* Rating badge */}
         {media.rating && media.rating > 0 && (

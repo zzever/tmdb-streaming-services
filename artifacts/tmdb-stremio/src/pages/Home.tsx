@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   useGetPopularTitles,
   useSearchTitles,
@@ -10,6 +10,7 @@ import {
   type ReleaseTitle,
   type DiscoverTitle,
 } from "@/hooks/use-media-api";
+import { useWatchlist } from "@/context/WatchlistContext";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
@@ -22,7 +23,7 @@ import { useLocale } from "@/context/LocaleContext";
 import {
   Copy, Check, Plug, Shuffle, BookMarked, Plus,
   Film, Tv2, Clapperboard, CalendarDays, Star, MonitorPlay,
-  Zap, Tag, X, Dices, Radio,
+  Zap, Tag, X, Dices, Radio, Heart, ChevronDown, SortAsc,
 } from "lucide-react";
 import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -362,8 +363,17 @@ function GenreChips({ type, selectedId, onSelect }: GenreChipsProps) {
   );
 }
 
+// ── Sort options ──
+type SortOption = "popularity.desc" | "vote_average.desc" | "primary_release_date.desc" | "vote_average.asc";
+const SORT_OPTIONS: { id: SortOption; label: string }[] = [
+  { id: "popularity.desc",              label: "Más populares" },
+  { id: "vote_average.desc",            label: "Mejor nota" },
+  { id: "primary_release_date.desc",    label: "Más recientes" },
+  { id: "vote_average.asc",             label: "Peor nota" },
+];
+
 // ── Main types ──────────────────────────────────────────────────
-type ViewMode = "browse" | "lists" | "releases" | "live";
+type ViewMode = "browse" | "lists" | "releases" | "live" | "watchlist";
 type AnyMedia = PopularTitle | SearchResult | ReleaseTitle | DiscoverTitle;
 
 const TABS = [
@@ -373,6 +383,7 @@ const TABS = [
   { id: "browse-programa", label: "Programas",    icon: <MonitorPlay className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, contentType: "programa" as ContentType },
   { id: "releases",        label: "Estrenos",     icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, contentType: null },
   { id: "live",            label: "TV en Directo", icon: <Radio className="w-3.5 h-3.5" />,       mode: "live" as ViewMode, contentType: null },
+  { id: "watchlist",       label: "Favoritos",    icon: <Heart className="w-3.5 h-3.5" />,        mode: "watchlist" as ViewMode, contentType: null },
   { id: "lists",           label: "Mis Listas",   icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, contentType: null },
 ];
 
@@ -384,9 +395,14 @@ export default function Home() {
   const [showAddList, setShowAddList] = useState(false);
   const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("popularity.desc");
+  const [page, setPage] = useState(1);
+  const [accumulatedResults, setAccumulatedResults] = useState<any[]>([]);
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
   const { lists } = useLists();
+  const { watchlist } = useWatchlist();
 
   const [selectedMedia, setSelectedMedia] = useState<AnyMedia | null>(null);
 
@@ -400,27 +416,33 @@ export default function Home() {
   const isPrograma = activeContentType === "programa";
   const isSpecialBrowse = isAnime || isPrograma;
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(1);
+    setAccumulatedResults([]);
+  }, [activeContentType, selectedGenreId, debouncedQuery, sortBy, locale.code]);
+
   // Popular (movie/series only, not anime/programa)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
-    { type: tmdbType, page: 1, country: locale.code },
+    { type: tmdbType, page, country: locale.code },
     { query: { enabled: !isSearching && !isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
-  // Genre filter for movie/series
+  // Genre filter for movie/series (with sort)
   const { data: discoverData, isLoading: isLoadingDiscover } = useDiscover(
-    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page: 1 },
+    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page, sortBy: isFiltering ? sortBy : undefined },
     { query: { enabled: isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
   // Anime discover — always fetches when on anime tab
   const { data: animeData, isLoading: isLoadingAnime } = useDiscover(
-    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page: 1, alwaysEnabled: true },
+    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page, alwaysEnabled: true, sortBy: sortBy },
     { query: { enabled: isAnime && !isSearching && viewMode === "browse" } }
   );
 
   // Programa discover — always fetches when on programa tab (Spanish-language content)
   const { data: programaData, isLoading: isLoadingPrograma } = useDiscover(
-    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page: 1, alwaysEnabled: true },
+    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page, alwaysEnabled: true, sortBy: sortBy },
     { query: { enabled: isPrograma && !isSearching && viewMode === "browse" } }
   );
 
@@ -430,12 +452,33 @@ export default function Home() {
     { query: { enabled: isSearching } }
   );
 
-  const displayedData: any[] | undefined =
+  // Accumulate paginated results
+  const currentPageData: any[] | undefined =
     isSearching   ? searchData?.results
     : isAnime     ? animeData?.results
     : isPrograma  ? programaData?.results
     : isFiltering ? discoverData?.results
     : popularData?.results;
+
+  useEffect(() => {
+    if (!currentPageData || currentPageData.length === 0) return;
+    if (page === 1) {
+      setAccumulatedResults(currentPageData);
+    } else {
+      setAccumulatedResults((prev) => {
+        const existingIds = new Set(prev.map((x: any) => x.tmdbId ?? x.id));
+        const newItems = currentPageData.filter((x: any) => !existingIds.has(x.tmdbId ?? x.id));
+        return [...prev, ...newItems];
+      });
+    }
+  }, [currentPageData, page]);
+
+  const displayedData: any[] = isSearching ? (searchData?.results ?? []) : accumulatedResults;
+  const totalPages = isFiltering ? (discoverData?.totalPages ?? 1)
+    : isAnime ? (animeData?.totalPages ?? 1)
+    : isPrograma ? (programaData?.totalPages ?? 1)
+    : 999;
+  const canLoadMore = !isSearching && page < Math.min(totalPages, 10);
 
   const isLoading =
     isSearching  ? isLoadingSearch
@@ -483,14 +526,18 @@ export default function Home() {
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
             {TABS.map((tab) => {
               const isActive =
-                tab.mode === "lists"     ? viewMode === "lists"
+                tab.mode === "lists"      ? viewMode === "lists"
                 : tab.mode === "releases" ? viewMode === "releases"
+                : tab.mode === "live"     ? viewMode === "live"
+                : tab.mode === "watchlist"? viewMode === "watchlist"
                 : viewMode === "browse" && activeContentType === tab.contentType;
               return (
                 <button key={tab.id}
                   onClick={() => {
-                    if (tab.mode === "lists")         { setViewMode("lists"); }
-                    else if (tab.mode === "releases") { setViewMode("releases"); }
+                    if (tab.mode === "lists")          { setViewMode("lists"); }
+                    else if (tab.mode === "releases")  { setViewMode("releases"); }
+                    else if (tab.mode === "live")      { setViewMode("live"); }
+                    else if (tab.mode === "watchlist") { setViewMode("watchlist"); }
                     else { setViewMode("browse"); handleTypeChange(tab.contentType!); }
                   }}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
@@ -501,6 +548,9 @@ export default function Home() {
                   {tab.label}
                   {tab.mode === "lists" && lists.length > 0 && (
                     <span className="ml-0.5 text-[10px] text-white/30 tabular-nums">({lists.length})</span>
+                  )}
+                  {tab.mode === "watchlist" && watchlist.length > 0 && (
+                    <span className="ml-0.5 text-[10px] text-red-400/70 tabular-nums">({watchlist.length})</span>
                   )}
                 </button>
               );
@@ -521,6 +571,38 @@ export default function Home() {
                 {displayedData && displayedData.length > 0 && (
                   <span className="text-xs text-white/20 tabular-nums">{displayedData.length} títulos</span>
                 )}
+
+                {/* Sort dropdown */}
+                {!isSearching && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowSortMenu((v) => !v)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all duration-200"
+                      style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+                    >
+                      <SortAsc className="w-3.5 h-3.5" />
+                      {SORT_OPTIONS.find((o) => o.id === sortBy)?.label ?? "Ordenar"}
+                      <ChevronDown className="w-3 h-3 opacity-50" />
+                    </button>
+                    {showSortMenu && (
+                      <div
+                        className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden py-1 min-w-[160px]"
+                        style={{ background: "rgba(20,20,35,0.98)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}
+                      >
+                        {SORT_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.id}
+                            onClick={() => { setSortBy(opt.id); setShowSortMenu(false); }}
+                            className={`w-full text-left px-3 py-2 text-xs transition-colors ${sortBy === opt.id ? "text-white bg-white/10" : "text-white/50 hover:text-white hover:bg-white/5"}`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
                   onClick={handleRandom}
                   disabled={isLoadingRandom}
@@ -582,6 +664,39 @@ export default function Home() {
         {/* ── Live TV view ── */}
         {viewMode === "live" && <LiveTV />}
 
+        {/* ── Watchlist / Favoritos view ── */}
+        {viewMode === "watchlist" && (
+          <div>
+            {watchlist.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <Heart className="w-7 h-7 text-white/20" />
+                </div>
+                <h3 className="text-xl font-display font-bold text-white/70 mb-2">Sin favoritos</h3>
+                <p className="text-white/30 text-sm max-w-sm">
+                  Haz clic en el corazón de cualquier tarjeta para añadirla a tu lista de favoritos.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-white/25 mb-4">{watchlist.length} título{watchlist.length !== 1 ? "s" : ""} guardado{watchlist.length !== 1 ? "s" : ""}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                  {watchlist.map((item, i) => (
+                    <motion.div key={item.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03, duration: 0.35, ease: "easeOut" }}>
+                      <MediaCard
+                        media={{ ...item, tmdbId: item.id, mediaType: item.type }}
+                        onClick={setSelectedMedia}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ── Browse / search grid ── */}
         {viewMode === "browse" && (
           <AnimatePresence mode="wait">
@@ -595,18 +710,35 @@ export default function Home() {
               </motion.div>
             ) : displayedData && displayedData.length > 0 ? (
               <motion.div key={`${activeContentType}-${selectedGenreId}-${debouncedQuery}`}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-                {displayedData.map((item, i) => (
-                  <motion.div key={`${item.tmdbId}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03, duration: 0.35, ease: "easeOut" }}>
-                    <MediaCard media={item} onClick={setSelectedMedia} onGenreClick={(g) => {
-                      const genres = tmdbType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
-                      const found = genres.find((x) => x.name.toLowerCase() === g.toLowerCase());
-                      if (found && !isSpecialBrowse) { setSelectedGenreId(found.id); setViewMode("browse"); }
-                    }} />
-                  </motion.div>
-                ))}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                  {displayedData.map((item, i) => (
+                    <motion.div key={`${item.tmdbId ?? item.id}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i, 11) * 0.03, duration: 0.35, ease: "easeOut" }}>
+                      <MediaCard media={item} onClick={setSelectedMedia} onGenreClick={(g) => {
+                        const genres = tmdbType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
+                        const found = genres.find((x) => x.name.toLowerCase() === g.toLowerCase());
+                        if (found && !isSpecialBrowse) { setSelectedGenreId(found.id); setViewMode("browse"); }
+                      }} />
+                    </motion.div>
+                  ))}
+                </div>
+                {canLoadMore && !isLoading && (
+                  <div className="flex justify-center mt-8">
+                    <button
+                      onClick={() => setPage((p) => p + 1)}
+                      className="flex items-center gap-2 px-8 py-3 rounded-2xl text-sm font-semibold text-white/70 hover:text-white transition-all duration-200"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+                    >
+                      Cargar más
+                    </button>
+                  </div>
+                )}
+                {isLoading && page > 1 && (
+                  <div className="flex justify-center mt-8">
+                    <div className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+                  </div>
+                )}
               </motion.div>
             ) : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}

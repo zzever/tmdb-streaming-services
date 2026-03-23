@@ -1,6 +1,15 @@
 import { Router, type IRouter } from "express";
 import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear, tmdbFetch } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __stremioDir = path.dirname(fileURLToPath(import.meta.url));
+interface LiveChannel { id: string; name: string; logo: string; groups: string[]; url: string; }
+const liveChannels: LiveChannel[] = JSON.parse(
+  readFileSync(path.join(__stremioDir, "../data/channels.json"), "utf8")
+);
 
 const router: IRouter = Router();
 
@@ -20,22 +29,27 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.4.0",
+  version: "2.5.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+, Crunchyroll y más sin pasar por TMDB.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
-  types: ["movie", "series"],
+  types: ["movie", "series", "tv"],
   resources: [
     { name: "stream",   types: ["movie", "series"], idPrefixes: ["tt"] },
     { name: "meta",     types: ["movie", "series"], idPrefixes: ["tt"] },
-    { name: "catalog",  types: ["movie", "series"] },
+    { name: "meta",     types: ["tv"],              idPrefixes: ["tv:"] },
+    { name: "stream",   types: ["tv"],              idPrefixes: ["tv:"] },
+    { name: "catalog",  types: ["movie", "series", "tv"] },
   ],
-  idPrefixes: ["tt"],
+  idPrefixes: ["tt", "tv:"],
   catalogs: [
-    { type: "movie",  id: "popular-es",  name: "🇪🇸 Películas Populares en España" },
-    { type: "series", id: "popular-es",  name: "🇪🇸 Series Populares en España" },
-    { type: "series", id: "anime-es",    name: "🗾 Anime en España" },
+    { type: "movie",  id: "popular-es",   name: "🇪🇸 Películas Populares en España" },
+    { type: "movie",  id: "peliculas-es", name: "🎬 Películas en Español" },
+    { type: "series", id: "popular-es",   name: "🇪🇸 Series Populares en España" },
+    { type: "series", id: "anime-es",     name: "🗾 Anime en España" },
+    { type: "series", id: "anime-movies-es", name: "🗾 Anime Películas" },
     { type: "series", id: "programas-es", name: "📺 Programas y Docs en España" },
+    { type: "tv",     id: "live-es",      name: "📡 TV en Directo España" },
   ],
   behaviorHints: {
     adult: false,
@@ -373,6 +387,27 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         with_original_language: "es",
       }, "series");
 
+    } else if (catalogId === "peliculas-es") {
+      // Películas en español
+      metas = await discoverMetas("/discover/movie", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free|ads",
+        with_original_language: "es",
+      }, "movie");
+
+    } else if (catalogId === "anime-movies-es") {
+      // Anime películas — animated Japanese movies with streaming in ES
+      metas = await discoverMetas("/discover/movie", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free|ads",
+        with_genres: "16",
+        with_original_language: "ja",
+      }, "movie");
+
     } else {
       res.json({ metas: [] });
       return;
@@ -383,6 +418,74 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
     req.log.error({ err }, "Error fetching Stremio catalog");
     res.json({ metas: [] });
   }
+});
+
+// ── TV catalog (live channels) ──────────────────────────────────
+router.get("/stremio/catalog/tv/:catalogId.json", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", "public, max-age=300");
+
+  const catalogId = req.params.catalogId.replace(/\.json$/, "");
+  if (catalogId !== "live-es") { res.json({ metas: [] }); return; }
+
+  const metas = liveChannels.slice(0, 200).map((ch) => ({
+    id: `tv:${ch.id}`,
+    type: "tv",
+    name: ch.name,
+    poster: ch.logo || undefined,
+    logo: ch.logo || undefined,
+    genres: ch.groups,
+    background: ch.logo || undefined,
+  }));
+  res.json({ metas });
+});
+
+// ── TV meta handler ──────────────────────────────────────────────
+router.get("/stremio/meta/tv/:id.json", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "application/json");
+
+  const rawId = req.params.id.replace(/\.json$/, "");
+  const chId = rawId.startsWith("tv:") ? rawId.slice(3) : rawId;
+  const ch = liveChannels.find((c) => c.id === chId);
+
+  if (!ch) { res.json({ meta: null }); return; }
+
+  res.json({
+    meta: {
+      id: `tv:${ch.id}`,
+      type: "tv",
+      name: ch.name,
+      poster: ch.logo || undefined,
+      logo: ch.logo || undefined,
+      genres: ch.groups,
+      description: `Canal de TV en directo. Grupos: ${ch.groups.join(", ")}`,
+    },
+  });
+});
+
+// ── TV stream handler ────────────────────────────────────────────
+router.get("/stremio/stream/tv/:id.json", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "application/json");
+
+  const rawId = req.params.id.replace(/\.json$/, "");
+  const chId = rawId.startsWith("tv:") ? rawId.slice(3) : rawId;
+  const ch = liveChannels.find((c) => c.id === chId);
+
+  if (!ch || !ch.url) { res.json({ streams: [] }); return; }
+
+  res.json({
+    streams: [
+      {
+        name: ch.name,
+        title: "📡 TV en Directo",
+        url: ch.url,
+        behaviorHints: { notWebReady: false },
+      },
+    ],
+  });
 });
 
 export default router;

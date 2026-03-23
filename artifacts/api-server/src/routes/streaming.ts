@@ -562,6 +562,72 @@ router.get("/streaming/person", async (req, res) => {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const channelsData: any[] = JSON.parse(readFileSync(path.join(__dirname, "../data/channels.json"), "utf8"));
 
+// ── EPG cache ──
+interface EpgProgram { title: string; desc: string | null; start: number; stop: number; }
+const epgCache = new Map<string, EpgProgram[]>();
+let epgFetchedAt = 0;
+const EPG_TTL = 60 * 60 * 1000;
+
+const EPG_SOURCES = [
+  "https://iptv-org.github.io/epg/guides/es/rtve.es.epg.xml",
+  "https://iptv-org.github.io/epg/guides/es/antena3.com.epg.xml",
+  "https://iptv-org.github.io/epg/guides/es/telecinco.es.epg.xml",
+  "https://iptv-org.github.io/epg/guides/es/la2.es.epg.xml",
+  "https://iptv-org.github.io/epg/guides/es/lasexta.com.epg.xml",
+  "https://iptv-org.github.io/epg/guides/es/cuatro.com.epg.xml",
+  "https://iptv-org.github.io/epg/guides/es/forta.es.epg.xml",
+];
+
+function parseXmltvTime(t: string): number {
+  const y = +t.slice(0,4), mo = +t.slice(4,6)-1, d = +t.slice(6,8);
+  const h = +t.slice(8,10), mi = +t.slice(10,12), s = +t.slice(12,14);
+  return new Date(Date.UTC(y, mo, d, h, mi, s)).getTime();
+}
+
+function decodeHtmlEntities(s: string): string {
+  return s.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(+n));
+}
+
+async function fetchEpgSource(url: string): Promise<void> {
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) return;
+    const xml = await resp.text();
+    const progRe = /<programme\s[^>]*start="(\d+)\s[^"]*"\s[^>]*stop="(\d+)\s[^"]*"\s[^>]*channel="([^"]+)"[^>]*>([\s\S]*?)<\/programme>/g;
+    let m: RegExpExecArray | null;
+    while ((m = progRe.exec(xml)) !== null) {
+      const [, start, stop, chId, body] = m;
+      const titleM = body.match(/<title[^>]*>([^<]+)<\/title>/);
+      if (!titleM) continue;
+      const descM = body.match(/<desc[^>]*>([^<]+)<\/desc>/);
+      const prog: EpgProgram = {
+        title: decodeHtmlEntities(titleM[1].trim()),
+        desc: descM ? decodeHtmlEntities(descM[1].trim()) : null,
+        start: parseXmltvTime(start),
+        stop: parseXmltvTime(stop),
+      };
+      if (!epgCache.has(chId)) epgCache.set(chId, []);
+      epgCache.get(chId)!.push(prog);
+    }
+  } catch { /* ignore per-source errors */ }
+}
+
+async function ensureEpg(): Promise<void> {
+  if (Date.now() - epgFetchedAt < EPG_TTL && epgCache.size > 0) return;
+  epgFetchedAt = Date.now();
+  epgCache.clear();
+  await Promise.all(EPG_SOURCES.map(fetchEpgSource));
+}
+
+function getCurrentAndNext(tvgId: string): { current: EpgProgram | null; next: EpgProgram | null } {
+  const baseId = tvgId.replace(/@.*$/, "");
+  const programs = epgCache.get(baseId) ?? epgCache.get(tvgId) ?? [];
+  const now = Date.now();
+  const current = programs.find(p => p.start <= now && p.stop > now) ?? null;
+  const next = programs.find(p => p.start > now) ?? null;
+  return { current, next };
+}
+
 const GROUP_LABELS: Record<string, string> = {
   General: "General", News: "Noticias", Sports: "Deportes", Music: "Música",
   Movies: "Cine", Series: "Series", Animation: "Animación", Kids: "Infantil",
@@ -571,6 +637,20 @@ const GROUP_LABELS: Record<string, string> = {
   Education: "Educación", Weather: "Tiempo", Outdoor: "Naturaleza",
   Legislative: "Parlamento",
 };
+
+router.get("/streaming/epg", async (req, res) => {
+  const idsParam = String(req.query.ids ?? "");
+  const ids = idsParam.split(",").map(s => s.trim()).filter(Boolean).slice(0, 50);
+
+  await ensureEpg();
+
+  const result: Record<string, { current: EpgProgram | null; next: EpgProgram | null }> = {};
+  for (const id of ids) {
+    result[id] = getCurrentAndNext(id);
+  }
+
+  res.json({ epg: result, channelsWithData: epgCache.size });
+});
 
 router.get("/streaming/live-channels", (req, res) => {
   const group = req.query.group as string | undefined;

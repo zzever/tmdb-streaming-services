@@ -1,8 +1,8 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import Hls from "hls.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Tv, Copy, Check, ExternalLink, Search, Radio, AlertCircle, Play, Volume2, VolumeX } from "lucide-react";
-import { useLiveChannels } from "@/hooks/use-media-api";
+import { useLiveChannels, useEpg, type EpgResult } from "@/hooks/use-media-api";
 
 const GROUP_ORDER = [
   "General", "News", "Sports", "Public", "Movies", "Series",
@@ -28,8 +28,12 @@ export interface LiveChannel {
   url: string;
 }
 
+function fmtTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+}
+
 // ── HLS Player modal ─────────────────────────────────────────────
-function PlayerModal({ channel, onClose }: { channel: LiveChannel; onClose: () => void }) {
+function PlayerModal({ channel, onClose, epg }: { channel: LiveChannel; onClose: () => void; epg?: EpgResult }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [status, setStatus] = useState<"loading" | "playing" | "error">("loading");
@@ -118,7 +122,14 @@ function PlayerModal({ channel, onClose }: { channel: LiveChannel; onClose: () =
           ) : (
             <Tv className="w-5 h-5 text-white/40" />
           )}
-          <span className="text-sm font-semibold text-white/90 truncate flex-1">{channel.name}</span>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-sm font-semibold text-white/90 truncate">{channel.name}</span>
+            {epg?.current && (
+              <span className="text-[10px] text-white/35 truncate">
+                {epg.current.title} · {fmtTime(epg.current.start)}–{fmtTime(epg.current.stop)}
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center gap-1.5">
             <button onClick={() => { if (videoRef.current) { videoRef.current.muted = !muted; setMuted(!muted); } }}
@@ -197,9 +208,10 @@ function PlayerModal({ channel, onClose }: { channel: LiveChannel; onClose: () =
 }
 
 // ── Channel card ─────────────────────────────────────────────────
-function ChannelCard({ ch, onClick }: { ch: LiveChannel; onClick: () => void }) {
+function ChannelCard({ ch, onClick, epg }: { ch: LiveChannel; onClick: () => void; epg?: EpgResult }) {
   const [logoError, setLogoError] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const currentProgram = epg?.current;
 
   return (
     <motion.button
@@ -208,7 +220,7 @@ function ChannelCard({ ch, onClick }: { ch: LiveChannel; onClick: () => void }) 
       onClick={onClick}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      className="relative flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl cursor-pointer text-center w-full"
+      className="relative flex flex-col items-center justify-center gap-2 p-3 rounded-2xl cursor-pointer text-center w-full"
       style={{
         background: hovered ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
         border: `1px solid ${hovered ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"}`,
@@ -236,10 +248,10 @@ function ChannelCard({ ch, onClick }: { ch: LiveChannel; onClick: () => void }) 
       </AnimatePresence>
 
       {/* Logo */}
-      <div className="w-12 h-12 flex items-center justify-center rounded-xl overflow-hidden"
+      <div className="w-11 h-11 flex items-center justify-center rounded-xl overflow-hidden"
         style={{ background: "rgba(255,255,255,0.05)" }}>
         {ch.logo && !logoError ? (
-          <img src={ch.logo} alt={ch.name} className="w-10 h-10 object-contain"
+          <img src={ch.logo} alt={ch.name} className="w-9 h-9 object-contain"
             onError={() => setLogoError(true)} loading="lazy" />
         ) : (
           <Tv className="w-6 h-6 text-white/20" />
@@ -251,6 +263,16 @@ function ChannelCard({ ch, onClick }: { ch: LiveChannel; onClick: () => void }) 
         style={{ fontSize: "10px" }}>
         {ch.name.replace(/\s*\([\d]+p\)|\s*\[.*?\]/g, "").trim()}
       </p>
+
+      {/* EPG current program */}
+      {currentProgram && (
+        <div className="w-full px-1">
+          <p className="text-[9px] text-white/35 line-clamp-1 leading-tight">{currentProgram.title}</p>
+          <p className="text-[8px] text-white/20 mt-0.5">
+            {fmtTime(currentProgram.start)} – {fmtTime(currentProgram.stop)}
+          </p>
+        </div>
+      )}
     </motion.button>
   );
 }
@@ -262,9 +284,13 @@ export function LiveTV() {
   const [activeChannel, setActiveChannel] = useState<LiveChannel | null>(null);
 
   const { data, isLoading } = useLiveChannels();
-
+  
   const channels: LiveChannel[] = data?.channels ?? [];
   const groups: { id: string; label: string; count: number }[] = data?.groups ?? [];
+
+  // Fetch EPG for all channels (tvg-id is the channel's id field)
+  const allTvgIds = useMemo(() => channels.map((c) => c.id), [channels]);
+  const { data: epgData } = useEpg(allTvgIds);
 
   const sortedGroups = [...groups].sort((a, b) => {
     const ai = GROUP_ORDER.indexOf(a.id);
@@ -349,7 +375,7 @@ export function LiveTV() {
             {filtered.map((ch, i) => (
               <motion.div key={ch.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.015, duration: 0.25 }}>
-                <ChannelCard ch={ch} onClick={() => setActiveChannel(ch)} />
+                <ChannelCard ch={ch} onClick={() => setActiveChannel(ch)} epg={epgData?.[ch.id]} />
               </motion.div>
             ))}
           </motion.div>
@@ -365,7 +391,7 @@ export function LiveTV() {
       {/* Player modal */}
       <AnimatePresence>
         {activeChannel && (
-          <PlayerModal channel={activeChannel} onClose={() => setActiveChannel(null)} />
+          <PlayerModal channel={activeChannel} onClose={() => setActiveChannel(null)} epg={epgData?.[activeChannel.id]} />
         )}
       </AnimatePresence>
     </div>
