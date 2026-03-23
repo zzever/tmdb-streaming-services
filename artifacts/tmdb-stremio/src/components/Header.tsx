@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, Film, Tv, Sparkles } from "lucide-react";
+import { Search, Film, Tv } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocaleSelector } from "./LocaleSelector";
 
@@ -17,12 +17,7 @@ export function Header({ searchQuery, setSearchQuery, activeType, setActiveType 
 
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center relative">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-primary/40 opacity-90" />
-            <div className="absolute inset-0 rounded-xl glow-primary opacity-60" />
-            <Sparkles className="relative w-4 h-4 text-white" />
-          </div>
-          <span className="font-display font-bold text-lg tracking-tight hidden sm:block">
+          <span className="font-display font-bold text-lg tracking-tight">
             <span className="text-white/90">TMDB</span>
             <span className="gradient-text-primary font-black"> Streaming ES</span>
           </span>
