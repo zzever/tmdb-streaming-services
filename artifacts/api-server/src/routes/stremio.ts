@@ -44,7 +44,9 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
   const { type, id } = req.params;
-  const imdbId = id.replace(/\.json$/, "");
+  // Series IDs from Stremio come as "tt1234567:season:episode" — extract just the IMDB ID
+  const rawId = id.replace(/\.json$/, "");
+  const imdbId = rawId.split(":")[0];
 
   if (!imdbId.startsWith("tt")) {
     res.json({ streams: [] });
