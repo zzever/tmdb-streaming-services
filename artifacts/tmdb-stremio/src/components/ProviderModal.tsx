@@ -5,7 +5,7 @@ import { getTmdbImage } from "@/lib/utils";
 import { WATCH_LOCALES } from "@/lib/locales";
 import {
   Loader2, MonitorPlay, AlertCircle, ExternalLink,
-  Clock, Star, Film, Globe, Users, Play, ChevronRight, Search,
+  Clock, Star, Film, Globe, Users, Play, ChevronRight, Search, Music2,
 } from "lucide-react";
 import type { StreamingProvider, SimilarTitle } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
@@ -31,10 +31,15 @@ interface ProviderModalProps {
 const TYPE_CONFIG: Record<string, { label: string; color: string; border: string; bg: string }> = {
   flatrate: { label: "Suscripción", color: "text-blue-400",   border: "border-blue-500/30",   bg: "bg-blue-500/8" },
   free:     { label: "Gratis",      color: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/8" },
-  ads:      { label: "Con anuncios",color: "text-violet-400",  border: "border-violet-500/30",  bg: "bg-violet-500/8" },
 };
-const TYPE_ORDER = ["flatrate", "free", "ads"];
+const TYPE_ORDER = ["flatrate", "free"];
 const ALLOWED_TYPES = new Set(TYPE_ORDER);
+
+const MUSIC_GENRE_NAMES = ["música", "music", "musical", "musique"];
+function isMusicContent(genres?: string[] | null): boolean {
+  if (!genres) return false;
+  return genres.some((g) => MUSIC_GENRE_NAMES.includes(g.toLowerCase()));
+}
 
 function fmt(n: number) {
   if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
@@ -104,6 +109,8 @@ export function ProviderModal({
   const allProviders = initialProviders?.length ? initialProviders : providersData?.providers || [];
   const providers = allProviders.filter((p) => ALLOWED_TYPES.has(p.type));
   const localeInfo = WATCH_LOCALES.find((l) => l.code === (country ?? "ES")) ?? WATCH_LOCALES.find((l) => l.code === "ES")!;
+  const isMusic = isMusicContent(genres);
+  const ytMusicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(title)}`;
 
   const groupedProviders = TYPE_ORDER.reduce((acc, t) => {
     const group = providers.filter((p) => p.type === t);
@@ -346,6 +353,31 @@ export function ProviderModal({
               <MonitorPlay className="w-3.5 h-3.5" />
               {localeInfo.flag} Disponible en {localeInfo.name}
             </h3>
+
+            {/* YouTube Music featured block — shown first for music content */}
+            {isMusic && (
+              <motion.a
+                href={ytMusicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                className="flex items-center gap-4 w-full p-4 rounded-2xl mb-5 cursor-pointer group"
+                style={{ background: "linear-gradient(135deg, rgba(255,0,0,0.12) 0%, rgba(180,0,0,0.08) 100%)", border: "1px solid rgba(255,80,80,0.25)" }}
+              >
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg"
+                  style={{ background: "linear-gradient(135deg, #ff0000 0%, #cc0000 100%)" }}>
+                  <Music2 className="w-7 h-7 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white leading-tight">YouTube Music</p>
+                  <p className="text-xs text-white/45 mt-0.5">Buscar "{title}" en YouTube Music</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-white/30 group-hover:text-white/70 transition-colors shrink-0" />
+              </motion.a>
+            )}
+
             {(isLoadingProviders && shouldFetchProviders) ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 text-primary animate-spin" />
@@ -356,23 +388,31 @@ export function ProviderModal({
                 <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
                 <p className="text-red-400 text-sm">No se pudieron cargar los proveedores.</p>
               </div>
-            ) : providers.length === 0 ? (
+            ) : providers.length === 0 && !isMusic ? (
               <div className="flex flex-col items-center justify-center py-8 text-center"
                 style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16 }}>
                 <MonitorPlay className="w-8 h-8 text-white/15 mb-2" />
                 <p className="text-white/40 text-sm font-medium">No disponible en streaming</p>
                 <p className="text-white/20 text-xs mt-1">No encontramos plataformas en {localeInfo.name} {localeInfo.flag}</p>
               </div>
-            ) : (
+            ) : providers.length > 0 ? (
               <div className="space-y-5">
+                {isMusic && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-white/25">También en plataformas</span>
+                    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  </div>
+                )}
                 {Object.entries(groupedProviders).map(([provType, provs]) => {
                   const config = TYPE_CONFIG[provType] ?? { label: provType, color: "text-white/40", border: "border-white/10", bg: "bg-white/5" };
                   return (
                     <div key={provType}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className={`text-[11px] font-bold uppercase tracking-widest ${config.color}`}>{config.label}</span>
-                        <div className="flex-1 h-px" style={{ background: `rgba(255,255,255,0.06)` }} />
-                      </div>
+                      {!isMusic && (
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`text-[11px] font-bold uppercase tracking-widest ${config.color}`}>{config.label}</span>
+                          <div className="flex-1 h-px" style={{ background: `rgba(255,255,255,0.06)` }} />
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-2.5">
                         {provs.map((provider, i) => (
                           <ProviderChip key={`${provider.providerId}-${i}`} provider={provider} />
@@ -382,7 +422,7 @@ export function ProviderModal({
                   );
                 })}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* ── Similar titles ── */}
