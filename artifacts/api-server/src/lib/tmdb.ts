@@ -58,6 +58,16 @@ export async function findTmdbId(imdbId: string, type: 'movie' | 'series'): Prom
   }
 }
 
+export async function getImdbId(tmdbId: number, type: 'movie' | 'series'): Promise<string | null> {
+  const path = type === 'series' ? `/tv/${tmdbId}/external_ids` : `/movie/${tmdbId}/external_ids`;
+  try {
+    const data = await tmdbFetch<{ imdb_id?: string | null }>(path);
+    return data.imdb_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getTmdbTitle(tmdbId: number, type: 'movie' | 'series', language = 'en-US'): Promise<string> {
   if (type === 'series') {
     const data = await tmdbFetch<{ name?: string; title?: string; original_name?: string }>(`/tv/${tmdbId}`, { language });
