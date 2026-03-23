@@ -23,8 +23,8 @@ export function Header({ searchQuery, setSearchQuery, activeType, setActiveType 
             <Sparkles className="relative w-4 h-4 text-white" />
           </div>
           <span className="font-display font-bold text-lg tracking-tight hidden sm:block">
-            <span className="text-white/90">Stremio</span>
-            <span className="gradient-text-primary font-black">ES</span>
+            <span className="text-white/90">TMDB</span>
+            <span className="gradient-text-primary font-black"> Streaming ES</span>
           </span>
         </div>
 
