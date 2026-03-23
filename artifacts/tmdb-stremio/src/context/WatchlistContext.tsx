@@ -10,17 +10,22 @@ interface WatchlistItem {
   year?: number | null;
   genres?: string[] | null;
   overview?: string | null;
+  addedAt?: number;
 }
 
 interface WatchlistContextValue {
   watchlist: WatchlistItem[];
   toggle: (item: WatchlistItem) => void;
+  remove: (id: number) => void;
+  clear: () => void;
   isInWatchlist: (id: number) => boolean;
 }
 
 const WatchlistContext = createContext<WatchlistContextValue>({
   watchlist: [],
   toggle: () => {},
+  remove: () => {},
+  clear: () => {},
   isInWatchlist: () => false,
 });
 
@@ -30,7 +35,8 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return parsed.map((item: WatchlistItem) => ({ ...item, addedAt: item.addedAt ?? Date.now() }));
     } catch {
       return [];
     }
@@ -43,16 +49,22 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const toggle = useCallback((item: WatchlistItem) => {
     setWatchlist((prev) => {
       const exists = prev.some((w) => w.id === item.id);
-      return exists ? prev.filter((w) => w.id !== item.id) : [item, ...prev];
+      return exists ? prev.filter((w) => w.id !== item.id) : [{ ...item, addedAt: Date.now() }, ...prev];
     });
   }, []);
+
+  const remove = useCallback((id: number) => {
+    setWatchlist((prev) => prev.filter((w) => w.id !== id));
+  }, []);
+
+  const clear = useCallback(() => setWatchlist([]), []);
 
   const isInWatchlist = useCallback((id: number) => {
     return watchlist.some((w) => w.id === id);
   }, [watchlist]);
 
   return (
-    <WatchlistContext.Provider value={{ watchlist, toggle, isInWatchlist }}>
+    <WatchlistContext.Provider value={{ watchlist, toggle, remove, clear, isInWatchlist }}>
       {children}
     </WatchlistContext.Provider>
   );

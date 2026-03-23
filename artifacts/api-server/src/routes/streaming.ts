@@ -617,6 +617,21 @@ router.get("/streaming/live-channels", (req, res) => {
   res.json({ channels, groups, total: (channelsData as any[]).length });
 });
 
+// YouTube Music search autocomplete suggestions
+router.get("/streaming/yt-suggest", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (!q || q.length < 2) { res.json({ suggestions: [] }); return; }
+  try {
+    const url = `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`;
+    const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } });
+    const json = await resp.json() as any;
+    const suggestions: string[] = Array.isArray(json[1]) ? json[1].slice(0, 8) : [];
+    res.json({ suggestions });
+  } catch {
+    res.json({ suggestions: [] });
+  }
+});
+
 // Kitsu anime metadata proxy — searches Kitsu.io by title
 router.get("/streaming/kitsu", async (req, res) => {
   const q = String(req.query.q ?? "").trim();

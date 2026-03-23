@@ -10,7 +10,7 @@ import {
   type ReleaseTitle,
   type DiscoverTitle,
 } from "@/hooks/use-media-api";
-import { useWatchlist } from "@/context/WatchlistContext";
+import { useWatchlist, type WatchlistItem } from "@/context/WatchlistContext";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
@@ -375,56 +375,79 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
 ];
 
 // ── Streaming service providers (TMDB IDs for Spain) ────────────
-interface StreamingService { id: number; name: string; logo: string; color: string }
+interface StreamingService { id: number; name: string; short: string; color: string; bg: string }
 const STREAMING_SERVICES: StreamingService[] = [
-  { id: 8,    name: "Netflix",       logo: "https://image.tmdb.org/t/p/w45/wwemzKWzjKYJFfCeiB57q3r4Bcm.png", color: "#e50914" },
-  { id: 119,  name: "Prime Video",   logo: "https://image.tmdb.org/t/p/w45/ifhbNuuVnlwYy5oXA5VIb2YR8AZ.png", color: "#00a8e1" },
-  { id: 337,  name: "Disney+",       logo: "https://image.tmdb.org/t/p/w45/7rwgEs15tFwyR9NPQ5vpzxTj19d.png", color: "#1d3678" },
-  { id: 1899, name: "Max",           logo: "https://image.tmdb.org/t/p/w45/Ajqyt5aNxNx9io3saSNiTt16F7I.png", color: "#002be7" },
-  { id: 350,  name: "Apple TV+",     logo: "https://image.tmdb.org/t/p/w45/peURlLlr8jggOwK53fJ5wdQl05y.png", color: "#555" },
-  { id: 283,  name: "Crunchyroll",   logo: "https://image.tmdb.org/t/p/w45/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.png", color: "#f47521" },
-  { id: 63,   name: "Filmin",        logo: "https://image.tmdb.org/t/p/w45/5GnxZMQmtEBSrJIvKSNEaijDlXN.png", color: "#ff5c5c" },
-  { id: 149,  name: "Movistar+",     logo: "https://image.tmdb.org/t/p/w45/iFlBWMMqaKJiMXkDCYiKL6MXgzU.png", color: "#00adef" },
-  { id: 576,  name: "Mitele",        logo: "https://image.tmdb.org/t/p/w45/km1pqCuXxStkaIg5v5cMkp2ViQ4.png", color: "#e30613" },
+  { id: 8,    name: "Netflix",      short: "N",  color: "#e50914", bg: "rgba(229,9,20,0.15)" },
+  { id: 119,  name: "Prime",        short: "P",  color: "#00a8e1", bg: "rgba(0,168,225,0.13)" },
+  { id: 337,  name: "Disney+",      short: "D+", color: "#4f7ef8", bg: "rgba(79,126,248,0.13)" },
+  { id: 1899, name: "Max",          short: "M",  color: "#6b7ef8", bg: "rgba(107,126,248,0.13)" },
+  { id: 350,  name: "Apple TV+",    short: "Tv", color: "#a0a0a0", bg: "rgba(160,160,160,0.10)" },
+  { id: 283,  name: "Crunchyroll",  short: "CR", color: "#f47521", bg: "rgba(244,117,33,0.13)" },
+  { id: 63,   name: "Filmin",       short: "Fi", color: "#ff5c5c", bg: "rgba(255,92,92,0.12)" },
+  { id: 149,  name: "Movistar+",    short: "M+", color: "#00adef", bg: "rgba(0,173,239,0.12)" },
+  { id: 35,   name: "Rakuten TV",   short: "R",  color: "#bf0000", bg: "rgba(191,0,0,0.13)" },
+  { id: 300,  name: "Pluto TV",     short: "Pl", color: "#ffd800", bg: "rgba(255,216,0,0.10)" },
+  { id: 576,  name: "Mitele",       short: "Mi", color: "#e30613", bg: "rgba(227,6,19,0.12)" },
 ];
 
 interface ServiceChipsProps {
   selected: number | null;
   onSelect: (id: number | null) => void;
-  type?: ContentType;
 }
 
 function StreamingServiceChips({ selected, onSelect }: ServiceChipsProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+      {/* "All" button */}
       <button
         onClick={() => onSelect(null)}
-        className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
+        className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
           selected === null
-            ? "text-white bg-white/12 border-white/15"
-            : "text-white/35 hover:text-white/65 border-transparent hover:border-white/10"
+            ? "text-white border-white/20 bg-white/10"
+            : "text-white/35 hover:text-white/65 border-white/[0.07] hover:border-white/15 bg-white/[0.03] hover:bg-white/[0.06]"
         }`}
       >
-        Todas las plataformas
+        Todas
       </button>
-      {STREAMING_SERVICES.map((svc) => (
-        <button
-          key={svc.id}
-          onClick={() => onSelect(selected === svc.id ? null : svc.id)}
-          title={svc.name}
-          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
-            selected === svc.id
-              ? "text-white border-white/20"
-              : "text-white/50 hover:text-white/80 border-transparent hover:border-white/10"
-          }`}
-          style={selected === svc.id ? { background: `${svc.color}22`, borderColor: `${svc.color}55` } : {}}
-        >
-          <img src={svc.logo} alt={svc.name} className="w-4 h-4 rounded object-cover shrink-0"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-          {svc.name}
-        </button>
-      ))}
+      {STREAMING_SERVICES.map((svc) => {
+        const isSelected = selected === svc.id;
+        return (
+          <button
+            key={svc.id}
+            onClick={() => onSelect(isSelected ? null : svc.id)}
+            title={svc.name}
+            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
+            style={{
+              color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
+              background: isSelected ? svc.bg : "rgba(255,255,255,0.03)",
+              borderColor: isSelected ? svc.color + "60" : "rgba(255,255,255,0.07)",
+            }}
+            onMouseEnter={(e) => {
+              if (!isSelected) {
+                (e.currentTarget as HTMLButtonElement).style.background = svc.bg;
+                (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = svc.color + "40";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected) {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)";
+              }
+            }}
+          >
+            {/* Brand dot */}
+            <span
+              className="flex-shrink-0 w-4 h-4 rounded-md flex items-center justify-center text-[9px] font-black leading-none"
+              style={{ background: svc.color, color: "#fff" }}
+            >
+              {svc.short}
+            </span>
+            {svc.name}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -445,6 +468,161 @@ const TABS = [
   { id: "lists",           label: "Mis Listas",   icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, contentType: null },
 ];
 
+// ── Watchlist / Favoritos view ───────────────────────────────────
+type WatchlistSort = "recent" | "title" | "rating" | "type";
+const WATCHLIST_SORT_LABELS: Record<WatchlistSort, string> = {
+  recent: "Más recientes",
+  title:  "Título A–Z",
+  rating: "Mejor nota",
+  type:   "Por tipo",
+};
+
+function WatchlistView({
+  watchlist,
+  onSelect,
+  onRemove,
+  onClear,
+}: {
+  watchlist: WatchlistItem[];
+  onSelect: (m: any) => void;
+  onRemove: (id: number) => void;
+  onClear: () => void;
+}) {
+  const [sortBy, setSortBy] = useState<WatchlistSort>("recent");
+  const [filterType, setFilterType] = useState<"all" | "movie" | "series" | "anime">("all");
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const filtered = watchlist.filter((w) => filterType === "all" || w.type === filterType);
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "recent") return (b.addedAt ?? 0) - (a.addedAt ?? 0);
+    if (sortBy === "title") return a.title.localeCompare(b.title, "es");
+    if (sortBy === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
+    if (sortBy === "type") return a.type.localeCompare(b.type);
+    return 0;
+  });
+
+  const TYPE_LABELS: Record<string, string> = { all: "Todo", movie: "Películas", series: "Series", anime: "Anime" };
+
+  if (watchlist.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <Heart className="w-7 h-7 text-white/20" />
+        </div>
+        <h3 className="text-xl font-display font-bold text-white/70 mb-2">Sin favoritos</h3>
+        <p className="text-white/30 text-sm max-w-sm">
+          Haz clic en el corazón de cualquier tarjeta para añadirla a tus favoritos.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {/* Type filter */}
+        <div className="flex items-center gap-1 p-0.5 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          {(["all", "movie", "series", "anime"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setFilterType(t)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                filterType === t ? "bg-white/12 text-white" : "text-white/35 hover:text-white/65"
+              }`}
+            >
+              {TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort */}
+        <div className="flex items-center gap-1 p-0.5 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          {(Object.keys(WATCHLIST_SORT_LABELS) as WatchlistSort[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                sortBy === s ? "bg-white/12 text-white" : "text-white/35 hover:text-white/65"
+              }`}
+            >
+              {WATCHLIST_SORT_LABELS[s]}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-xs text-white/20 ml-1">{sorted.length} título{sorted.length !== 1 ? "s" : ""}</span>
+
+        {/* Clear all */}
+        <div className="ml-auto flex items-center gap-2">
+          {confirmClear ? (
+            <>
+              <span className="text-xs text-red-400/80">¿Borrar todo?</span>
+              <button
+                onClick={() => { onClear(); setConfirmClear(false); }}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-400 transition-colors hover:text-red-300"
+                style={{ background: "rgba(255,60,60,0.10)", border: "1px solid rgba(255,60,60,0.20)" }}
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white/40 hover:text-white/70 transition-colors"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/30 hover:text-red-400/80 transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <X className="w-3 h-3" />
+              Borrar todo
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Grid */}
+      {sorted.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-white/30 text-sm">No hay títulos en esta categoría.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          {sorted.map((item, i) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.025, duration: 0.32, ease: "easeOut" }}
+              className="relative group"
+            >
+              <MediaCard
+                media={{ ...item, tmdbId: item.id, mediaType: item.type }}
+                onClick={onSelect}
+              />
+              {/* Remove button overlay */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+                title="Eliminar de favoritos"
+                className="absolute top-2 left-2 w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.15)" }}
+              >
+                <X className="w-3 h-3 text-white/80" />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Home ────────────────────────────────────────────────────────
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -461,7 +639,7 @@ export default function Home() {
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
   const { lists } = useLists();
-  const { watchlist } = useWatchlist();
+  const { watchlist, remove: removeFromWatchlist, clear: clearWatchlist } = useWatchlist();
 
   const [selectedMedia, setSelectedMedia] = useState<AnyMedia | null>(null);
 
@@ -758,35 +936,12 @@ export default function Home() {
 
         {/* ── Watchlist / Favoritos view ── */}
         {viewMode === "watchlist" && (
-          <div>
-            {watchlist.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <Heart className="w-7 h-7 text-white/20" />
-                </div>
-                <h3 className="text-xl font-display font-bold text-white/70 mb-2">Sin favoritos</h3>
-                <p className="text-white/30 text-sm max-w-sm">
-                  Haz clic en el corazón de cualquier tarjeta para añadirla a tu lista de favoritos.
-                </p>
-              </div>
-            ) : (
-              <>
-                <p className="text-xs text-white/25 mb-4">{watchlist.length} título{watchlist.length !== 1 ? "s" : ""} guardado{watchlist.length !== 1 ? "s" : ""}</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-                  {watchlist.map((item, i) => (
-                    <motion.div key={item.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03, duration: 0.35, ease: "easeOut" }}>
-                      <MediaCard
-                        media={{ ...item, tmdbId: item.id, mediaType: item.type }}
-                        onClick={setSelectedMedia}
-                      />
-                    </motion.div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <WatchlistView
+            watchlist={watchlist}
+            onSelect={setSelectedMedia}
+            onRemove={removeFromWatchlist}
+            onClear={clearWatchlist}
+          />
         )}
 
         {/* ── YouTube Music Player (Música tab only) ── */}
