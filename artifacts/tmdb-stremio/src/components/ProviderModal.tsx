@@ -95,9 +95,10 @@ export function ProviderModal({
   const [selectedSimilar, setSelectedSimilar] = useState<SimilarTitle | null>(null);
   const [selectedActorName, setSelectedActorName] = useState<string | null>(null);
 
-  const noInitial = !initialProviders || initialProviders.length === 0;
-  const shouldFetchByImdb  = isOpen && !!imdbId  && noInitial;
-  const shouldFetchByTmdb  = isOpen && !imdbId   && !!tmdbId && noInitial;
+  // Always fetch fresh providers when the modal opens so injected links (Movistar+, etc.) are always present.
+  // initialProviders is used only as a fallback while the fresh fetch is in-flight.
+  const shouldFetchByImdb  = isOpen && !!imdbId;
+  const shouldFetchByTmdb  = isOpen && !imdbId && !!tmdbId;
 
   const { data: providersData,      isLoading: isLoadingByImdb,  isError: isErrorByImdb  } = useGetStreamingProviders(
     { imdbId: imdbId!, type, country },
@@ -116,9 +117,12 @@ export function ProviderModal({
     { query: { enabled: isOpen && !!tmdbId } }
   );
 
-  const allProviders = initialProviders?.length
-    ? initialProviders
-    : (providersData?.providers ?? providersByTmdbData?.providers ?? []);
+  // Prefer fresh API data; fall back to initialProviders while loading
+  const allProviders =
+    providersData?.providers ??
+    providersByTmdbData?.providers ??
+    initialProviders ??
+    [];
   const providers = allProviders.filter((p) => ALLOWED_TYPES.has(p.type));
   const localeInfo = WATCH_LOCALES.find((l) => l.code === (country ?? "ES")) ?? WATCH_LOCALES.find((l) => l.code === "ES")!;
   const isMusic = isMusicContent(genres);
