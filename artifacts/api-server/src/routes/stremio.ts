@@ -5,8 +5,8 @@ import { getJWDirectOffers } from "../lib/justwatch.js";
 const router: IRouter = Router();
 
 const manifest = {
-  id: "org.stremio.tmdb-es",
-  version: "2.0.0",
+  id: "community.tmdb-streaming-es",
+  version: "2.1.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+ y más sin pasar por TMDB.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
@@ -36,6 +36,7 @@ const TYPE_META: Record<string, { emoji: string; label: string }> = {
 router.get("/stremio/manifest.json", (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", "no-store");
   res.json(manifest);
 });
 
