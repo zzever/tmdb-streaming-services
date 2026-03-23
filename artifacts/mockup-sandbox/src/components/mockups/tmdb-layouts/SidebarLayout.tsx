@@ -104,7 +104,7 @@ export function SidebarLayout() {
 
         <div className="m-3 p-3.5 rounded-xl bg-gradient-to-br from-violet-600/20 to-indigo-600/10 border border-violet-500/20">
           <p className="text-xs font-bold text-violet-300 mb-1">Stremio Addon</p>
-          <p className="text-[11px] text-white/40 mb-3 leading-relaxed">Install to watch directly from Stremio</p>
+          <p className="text-[11px] text-white/40 mb-3 leading-relaxed">Instala en Stremio</p>
           <button className="w-full flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
             <ExternalLink className="w-3 h-3" /> Install
           </button>
