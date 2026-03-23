@@ -161,8 +161,17 @@ export function useKitsuSearch(title: string, enabled = true) {
 }
 
 // ── Random title (beyond the top 20 shown) ──
-export async function fetchRandomTitle(type: "movie" | "series", country: string): Promise<DiscoverTitle | null> {
-  const res = await fetch(`/api/streaming/random?type=${type}&country=${country}`);
+export async function fetchRandomTitle(
+  type: "movie" | "series",
+  country: string,
+  opts?: { genreIds?: string; originLanguage?: string }
+): Promise<DiscoverTitle | null> {
+  const u = new URL("/api/streaming/random", window.location.origin);
+  u.searchParams.set("type", type);
+  u.searchParams.set("country", country);
+  if (opts?.genreIds)        u.searchParams.set("genreIds", opts.genreIds);
+  if (opts?.originLanguage)  u.searchParams.set("originLanguage", opts.originLanguage);
+  const res = await fetch(u.toString());
   if (!res.ok) return null;
   return res.json();
 }

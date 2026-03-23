@@ -378,6 +378,7 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
 interface StreamingService { id: number; name: string; short: string; color: string; bg: string }
 
 const CRUNCHYROLL_SERVICE: StreamingService = { id: 283, name: "Crunchyroll", short: "CR", color: "#f47521", bg: "rgba(244,117,33,0.13)" };
+const MOVISTAR_SERVICE: StreamingService    = { id: 149, name: "Movistar+",   short: "M+", color: "#00adef", bg: "rgba(0,173,239,0.12)" };
 
 const STREAMING_SERVICES: StreamingService[] = [
   { id: 8,    name: "Netflix",      short: "N",  color: "#e50914", bg: "rgba(229,9,20,0.15)" },
@@ -639,6 +640,7 @@ export default function Home() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
   const [animeProvider, setAnimeProvider] = useState<number | null>(null);
+  const [programaProvider, setProgramaProvider] = useState<number | null>(null);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
   const { lists } = useLists();
@@ -661,7 +663,7 @@ export default function Home() {
   useEffect(() => {
     setPage(1);
     setAccumulatedResults([]);
-  }, [activeContentType, selectedGenreId, selectedProvider, animeProvider, debouncedQuery, sortBy, locale.code]);
+  }, [activeContentType, selectedGenreId, selectedProvider, animeProvider, programaProvider, debouncedQuery, sortBy, locale.code]);
 
   // Popular (movie/series only, not special tabs)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
@@ -681,9 +683,9 @@ export default function Home() {
     { query: { enabled: isAnime && !isSearching && viewMode === "browse" } }
   );
 
-  // Programa discover — always fetches when on programa tab (Spanish-language content)
+  // Programa discover — always fetches when on programa tab (with optional Movistar+ filter)
   const { data: programaData, isLoading: isLoadingPrograma } = useDiscover(
-    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page, alwaysEnabled: true, sortBy: sortBy },
+    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page, alwaysEnabled: true, sortBy: sortBy, withProvider: programaProvider },
     { query: { enabled: isPrograma && !isSearching && viewMode === "browse" } }
   );
 
@@ -743,19 +745,27 @@ export default function Home() {
     setSelectedGenreId(null);
     setSelectedProvider(null);
     setAnimeProvider(null);
+    setProgramaProvider(null);
   }, []);
 
-  // Random button — fetches from a random page beyond the top 20
+  // Random button — fetches based on the active category
   const handleRandom = useCallback(async () => {
     if (isLoadingRandom) return;
     setIsLoadingRandom(true);
     try {
-      const result = await fetchRandomTitle(tmdbType, locale.code);
+      let type: "movie" | "series" = tmdbType;
+      let opts: { genreIds?: string; originLanguage?: string } | undefined;
+
+      if (isAnime)        { type = "series"; opts = { genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG }; }
+      else if (isPrograma){ type = "series"; opts = { genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es" }; }
+      else if (isMusica)  { type = "movie";  opts = { genreIds: MUSICA_GENRE_ID }; }
+
+      const result = await fetchRandomTitle(type, locale.code, opts);
       if (result) setSelectedMedia(result);
     } finally {
       setIsLoadingRandom(false);
     }
-  }, [tmdbType, locale.code, isLoadingRandom]);
+  }, [tmdbType, locale.code, isLoadingRandom, isAnime, isPrograma, isMusica]);
 
   const activeGenreName = (() => {
     const genres = activeContentType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
@@ -996,6 +1006,74 @@ export default function Home() {
           )}
         </AnimatePresence>
 
+        {/* ── Movistar+ filter for Programas tab ── */}
+        <AnimatePresence>
+          {viewMode === "browse" && isPrograma && !isSearching && (
+            <motion.div
+              key="programa-provider-chip"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-5 overflow-hidden"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold shrink-0">Plataforma</span>
+                <button
+                  onClick={() => setProgramaProvider(null)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
+                    programaProvider === null
+                      ? "text-white border-white/20 bg-white/10"
+                      : "text-white/35 hover:text-white/65 border-white/[0.07] hover:border-white/15 bg-white/[0.03]"
+                  }`}
+                >
+                  Todas
+                </button>
+                {(() => {
+                  const svc = MOVISTAR_SERVICE;
+                  const isSelected = programaProvider === svc.id;
+                  return (
+                    <button
+                      onClick={() => setProgramaProvider(isSelected ? null : svc.id)}
+                      title={svc.name}
+                      className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
+                      style={{
+                        color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
+                        background: isSelected ? svc.bg : "rgba(255,255,255,0.03)",
+                        borderColor: isSelected ? svc.color + "60" : "rgba(255,255,255,0.07)",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          (e.currentTarget as HTMLButtonElement).style.background = svc.bg;
+                          (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
+                          (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
+                        }
+                      }}
+                    >
+                      <span
+                        className="flex items-center justify-center rounded text-[9px] font-black leading-none shrink-0"
+                        style={{ width: 22, height: 22, background: svc.color, color: "#fff", letterSpacing: "-0.02em" }}
+                      >
+                        {svc.short}
+                      </span>
+                      {svc.name}
+                    </button>
+                  );
+                })()}
+              </div>
+              {programaProvider !== null && (
+                <p className="text-xs text-white/30 mt-2">
+                  Mostrando programas disponibles en <span className="text-white/55 font-semibold">Movistar+</span> en España
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Lists view ── */}
         {viewMode === "lists" && <ListsSection />}
 
@@ -1055,7 +1133,9 @@ export default function Home() {
                         ? STREAMING_SERVICES.find((s) => s.id === selectedProvider)
                         : !('providers' in item) && isAnime && animeProvider !== null
                           ? CRUNCHYROLL_SERVICE
-                          : undefined;
+                          : !('providers' in item) && isPrograma && programaProvider !== null
+                            ? MOVISTAR_SERVICE
+                            : undefined;
                     const enrichedItem = activeProviderSvc
                       ? { ...item, providers: [{ providerId: activeProviderSvc.id, name: activeProviderSvc.name, logo: null, type: "flatrate" }] }
                       : item;

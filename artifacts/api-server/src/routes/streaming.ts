@@ -368,32 +368,56 @@ router.get("/streaming/discover", async (req, res) => {
   }
 });
 
-// Random title — picks from a random page of popular to go beyond the top 20
+// Random title — picks from a random page of popular, or discover for special categories
 router.get("/streaming/random", async (req, res) => {
-  const type = String(req.query.type ?? "movie") as "movie" | "series";
-  const country = String(req.query.country ?? "ES");
+  const type       = String(req.query.type ?? "movie") as "movie" | "series";
+  const country    = String(req.query.country ?? "ES");
+  const genreIds   = req.query.genreIds   ? String(req.query.genreIds)   : null;
+  const originLang = req.query.originLanguage ? String(req.query.originLanguage) : null;
 
   try {
     const randomPage = Math.floor(Math.random() * 10) + 1;
-    const { results, totalPages } = await getPopular(type === "series" ? "series" : "movie", randomPage, country);
+    let results: any[] = [];
+
+    if (genreIds || originLang) {
+      // Discover for special categories (anime, programa, musica)
+      const params: Record<string, string> = {
+        page: String(randomPage),
+        sort_by: "popularity.desc",
+        watch_region: country,
+        with_watch_monetization_types: "flatrate|free",
+      };
+      if (genreIds)   params.with_genres             = genreIds;
+      if (originLang) params.with_original_language  = originLang;
+
+      const tmdbPath = type === "series" ? "/discover/tv" : "/discover/movie";
+      const raw = await tmdbFetch<{ results?: any[] }>(tmdbPath, params);
+      results = raw.results ?? [];
+    } else {
+      const { results: pop } = await getPopular(type === "series" ? "series" : "movie", randomPage, country);
+      results = pop;
+    }
+
     if (!results.length) {
       res.status(404).json({ error: "Not Found" });
       return;
     }
+
     const r = results[Math.floor(Math.random() * results.length)];
+    const mediaType = type === "series" ? "series" : "movie";
     const [imdbId, providersResult] = await Promise.all([
-      getImdbId(r.id, type === "series" ? "series" : "movie").catch(() => null),
-      getWatchProviders(r.id, type === "series" ? "series" : "movie", country).catch(() => null),
+      getImdbId(r.id, mediaType).catch(() => null),
+      getWatchProviders(r.id, mediaType, country).catch(() => null),
     ]);
     const providers = providersResult
-      ? mapProviders(providersResult.data, providersResult.watchUrl, r.id, type === "series" ? "series" : "movie", country)
+      ? mapProviders(providersResult.data, providersResult.watchUrl, r.id, mediaType, country)
       : [];
 
     res.json({
       imdbId: imdbId ?? null,
       tmdbId: r.id,
       title: r.title || r.name || "",
-      type: type === "series" ? "series" : "movie",
+      type: mediaType,
       year: parseYear(r),
       poster: posterUrl(r.poster_path),
       backdrop: backdropUrl(r.backdrop_path),
@@ -405,6 +429,41 @@ router.get("/streaming/random", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error fetching random title");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch random title" });
+  }
+});
+
+// Archive.org concert search — proxies public search API for video recordings
+router.get("/streaming/archive-concerts", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  if (!q) { res.json({ results: [] }); return; }
+
+  try {
+    const params = new URLSearchParams({
+      q: `(${q}) AND (subject:(concert) OR subject:(live)) AND mediatype:(movies)`,
+      output: "json",
+      rows: "6",
+      "fl[]": "identifier,title,creator,year,description",
+      sort: "downloads desc",
+    });
+    const r = await fetch(`https://archive.org/advancedsearch.php?${params.toString()}`, {
+      headers: { "User-Agent": "TMDB-Streaming-ES/2.8" },
+    });
+    if (!r.ok) throw new Error("Archive.org error");
+    const data = await r.json() as any;
+    const docs: any[] = data?.response?.docs ?? [];
+    res.json({
+      results: docs.map((d) => ({
+        identifier: d.identifier,
+        title: Array.isArray(d.title) ? d.title[0] : (d.title || ""),
+        creator: Array.isArray(d.creator) ? d.creator[0] : (d.creator || ""),
+        year: d.year ?? null,
+        url: `https://archive.org/details/${d.identifier}`,
+      })),
+    });
+  } catch {
+    res.json({ results: [] });
   }
 });
 
