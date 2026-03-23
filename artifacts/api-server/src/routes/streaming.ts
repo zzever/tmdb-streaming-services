@@ -421,6 +421,26 @@ router.get("/streaming/discover", async (req, res) => {
   }
 });
 
+// Title images (backdrops) — for fan art strip on cards
+router.get("/streaming/images", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  const tmdbId = String(req.query.tmdbId ?? "");
+  const type   = String(req.query.type ?? "movie");
+  if (!tmdbId) { res.json({ backdrops: [] }); return; }
+  try {
+    const ep = type === "series" ? `tv/${tmdbId}` : `movie/${tmdbId}`;
+    const data = await tmdbFetch(`${ep}/images?include_image_language=null,es,en`);
+    const backdrops = ((data as any).backdrops ?? [])
+      .filter((b: any) => b.vote_average > 4 || !(b.vote_count))
+      .slice(0, 8)
+      .map((b: any) => b.file_path as string);
+    res.json({ backdrops });
+  } catch {
+    res.json({ backdrops: [] });
+  }
+});
+
 // Random title — picks from a random page of popular, or discover for special categories
 router.get("/streaming/random", async (req, res) => {
   const type       = String(req.query.type ?? "movie") as "movie" | "series";
@@ -682,6 +702,7 @@ const GROUP_LABELS: Record<string, string> = {
   Family: "Familia", Lifestyle: "Estilo de vida", Business: "Economía",
   Education: "Educación", Weather: "Tiempo", Outdoor: "Naturaleza",
   Legislative: "Parlamento", Regional: "Regional", Radio: "Radio",
+  "España Extra": "🇪🇸 Extra", USA: "🇺🇸 USA", "Música": "🎵 Música",
 };
 
 router.get("/streaming/epg", async (req, res) => {

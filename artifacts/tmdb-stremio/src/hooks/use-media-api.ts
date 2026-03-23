@@ -213,6 +213,20 @@ export interface PersonData {
   role: "actor" | "director";
 }
 
+// ── Title fan art backdrops ──
+export function useMediaImages(tmdbId: number | string | null | undefined, type: "movie" | "series" = "movie") {
+  return useQuery({
+    queryKey: ["media-images", tmdbId, type],
+    queryFn: async () => {
+      const res = await fetch(`/api/streaming/images?tmdbId=${tmdbId}&type=${type}`);
+      if (!res.ok) throw new Error("Failed to fetch images");
+      return res.json() as Promise<{ backdrops: string[] }>;
+    },
+    enabled: !!tmdbId,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
 // ── Watch providers by country (for streaming service chips) ──
 export interface WatchProvider { id: number; name: string; logo: string | null; displayPriority: number; }
 

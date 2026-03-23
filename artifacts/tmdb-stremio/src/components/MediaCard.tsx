@@ -5,6 +5,7 @@ import { MonitorPlay, Star, Heart, Eye } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useWatchlist } from "@/context/WatchlistContext";
 import { useWatched } from "@/context/WatchedContext";
+import { useMediaImages } from "@/hooks/use-media-api";
 
 interface DisplayProvider {
   providerId: number;
@@ -26,12 +27,17 @@ interface MediaCardProps {
 
 export function MediaCard({ media, onClick, onGenreClick, compact = false }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [everHovered, setEverHovered] = useState(false);
   const { toggle, isInWatchlist } = useWatchlist();
   const { toggle: toggleWatched, isWatched } = useWatched();
   const inList = media.id ? isInWatchlist(media.id) : false;
   const inWatched = media.id ? isWatched(media.id) : false;
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
+
+  const mediaType = media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie");
+  const { data: imagesData } = useMediaImages(everHovered ? (media.tmdbId ?? media.id) : null, mediaType === "series" ? "series" : "movie");
+  const fanArtBackdrops = imagesData?.backdrops?.slice(0, 4) ?? [];
 
   const isPopularTitle = "providers" in media;
   const providers: DisplayProvider[] = isPopularTitle ? (media as PopularTitle).providers ?? [] : [];
@@ -173,7 +179,7 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
       whileHover={{ y: -5, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 380, damping: 28 }}
       onClick={() => onClick(media)}
-      onHoverStart={() => setIsHovered(true)}
+      onHoverStart={() => { setIsHovered(true); setEverHovered(true); }}
       onHoverEnd={() => setIsHovered(false)}
       className="group relative flex flex-col cursor-pointer rounded-2xl glow-card hover:glow-card-hover transition-shadow duration-300"
       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
@@ -231,13 +237,40 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
                     className="w-full h-full object-cover object-center"
                   />
                   {/* Gradient overlay for readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/10" />
-                  {/* Overview text */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-[11px] text-white/85 line-clamp-4 leading-relaxed">
-                      {media.overview || "Sin descripción disponible."}
-                    </p>
-                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+                  {/* Fan art strip (DVD-style scene thumbnails) */}
+                  {fanArtBackdrops.length > 1 && (
+                    <div className="absolute bottom-0 left-0 right-0 px-2 pb-2 pt-1">
+                      <div className="flex gap-1 mb-2">
+                        {fanArtBackdrops.slice(1).map((path, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 aspect-video rounded overflow-hidden border border-white/20 shadow-lg"
+                            style={{ maxWidth: 72 }}
+                          >
+                            <img
+                              src={getTmdbImage(path, "w300")}
+                              alt=""
+                              aria-hidden
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-white/75 line-clamp-3 leading-relaxed">
+                        {media.overview || "Sin descripción disponible."}
+                      </p>
+                    </div>
+                  )}
+                  {/* Overview text (when no extra fan art yet) */}
+                  {fanArtBackdrops.length <= 1 && (
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-[11px] text-white/85 line-clamp-4 leading-relaxed">
+                        {media.overview || "Sin descripción disponible."}
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
