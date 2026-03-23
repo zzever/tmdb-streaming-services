@@ -343,6 +343,16 @@ export function ProviderModal({
                   <Search className="w-4 h-4 text-indigo-400" />
                   Buscar en Stremio
                 </a>
+                <a
+                  href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(title + (year ? " " + year : ""))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:brightness-110 transition-all duration-200"
+                  style={{ background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.25)", color: "rgb(255,165,60)" }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  FilmAffinity
+                </a>
               </div>
             </div>
           </div>
@@ -551,7 +561,18 @@ export function ProviderModal({
                     </div>
                     <div className="px-1.5 py-1.5">
                       <p className="text-[10px] font-semibold text-white/70 group-hover:text-white line-clamp-2 leading-tight transition-colors">{s.title}</p>
-                      <p className="text-[9px] text-white/30 mt-0.5">{s.year || ""}</p>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <p className="text-[9px] text-white/30">{s.year || ""}</p>
+                        <a
+                          href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(s.title + (s.year ? " " + s.year : ""))}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title="Ver en FilmAffinity"
+                          className="text-[8px] font-bold opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity"
+                          style={{ color: "rgb(255,140,0)" }}
+                        >FA↗</a>
+                      </div>
                     </div>
                   </motion.div>
                 ))}

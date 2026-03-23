@@ -52,7 +52,21 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-display font-bold text-white/90 truncate">{actorName}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-display font-bold text-white/90 truncate">{actorName}</h2>
+                <a
+                  href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(actorName)}&stype%5B%5D=${data?.role === "director" ? "directors" : "actors"}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  title="Ver en FilmAffinity"
+                  className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-opacity hover:opacity-100 opacity-60"
+                  style={{ background: "rgba(255,140,0,0.15)", border: "1px solid rgba(255,140,0,0.3)", color: "rgb(255,165,60)" }}
+                >
+                  <span>FA</span>
+                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              </div>
               {data && !isLoading && (
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest shrink-0"
@@ -168,7 +182,18 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
                           {credit.character}
                         </p>
                       )}
-                      <p className="text-[9px] text-white/25 mt-0.5">{credit.year || ""}</p>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <p className="text-[9px] text-white/25">{credit.year || ""}</p>
+                        <a
+                          href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(credit.title + (credit.year ? " " + credit.year : ""))}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title="Buscar en FilmAffinity"
+                          className="text-[8px] font-bold opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity"
+                          style={{ color: "rgb(255,140,0)" }}
+                        >FA↗</a>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
