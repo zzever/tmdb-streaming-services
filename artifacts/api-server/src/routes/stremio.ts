@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear, tmdbFetch } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
+import { ensureEpg, getCurrentAndNext } from "../lib/epg.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -29,7 +30,7 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.5.0",
+  version: "2.6.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+, Crunchyroll y más sin pasar por TMDB.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
@@ -45,6 +46,7 @@ const manifest = {
   catalogs: [
     { type: "movie",  id: "popular-es",   name: "🇪🇸 Películas Populares en España" },
     { type: "movie",  id: "peliculas-es", name: "🎬 Películas en Español" },
+    { type: "movie",  id: "musica-es",    name: "🎵 Música y Conciertos" },
     { type: "series", id: "popular-es",   name: "🇪🇸 Series Populares en España" },
     { type: "series", id: "anime-es",     name: "🗾 Anime en España" },
     { type: "series", id: "anime-movies-es", name: "🗾 Anime Películas" },
@@ -195,9 +197,10 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       return;
     }
 
-    const [providersResult, title] = await Promise.all([
+    const [providersResult, title, tmdbDetails] = await Promise.all([
       getWatchProviders(tmdbId, mediaType, COUNTRY),
       getTmdbTitle(tmdbId, mediaType),
+      getTmdbDetails(imdbId, mediaType).catch(() => null),
     ]);
 
     if (!providersResult) {
@@ -206,10 +209,6 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
     }
 
     const mapped = mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, COUNTRY);
-    if (mapped.length === 0) {
-      res.json({ streams: [] });
-      return;
-    }
 
     // Fetch JustWatch direct URLs in parallel (uses title for accurate node lookup)
     const jwOffers = title
@@ -254,6 +253,18 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
         behaviorHints: {
           bingeGroup: `${p.type}-${p.name}`,
         },
+      });
+    }
+
+    // If Music genre (10402) — add YouTube Music search link
+    const genres: number[] = (tmdbDetails as any)?.genres?.map((g: any) => g.id) ?? [];
+    if (genres.includes(10402) && title) {
+      const ytMusicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(title)}`;
+      streams.push({
+        name: "🎵 YouTube Music",
+        title: `🎵 Buscar en YouTube Music`,
+        externalUrl: ytMusicUrl,
+        behaviorHints: { bingeGroup: "music-youtube" },
       });
     }
 
@@ -408,6 +419,16 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         with_original_language: "ja",
       }, "movie");
 
+    } else if (catalogId === "musica-es") {
+      // Música y Conciertos — TMDB music genre (10402) movies: concerts, biopics, musicals
+      metas = await discoverMetas("/discover/movie", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free|ads",
+        with_genres: "10402",
+      }, "movie");
+
     } else {
       res.json({ metas: [] });
       return;
@@ -441,8 +462,8 @@ router.get("/stremio/catalog/tv/:catalogId.json", (req, res) => {
   res.json({ metas });
 });
 
-// ── TV meta handler ──────────────────────────────────────────────
-router.get("/stremio/meta/tv/:id.json", (req, res) => {
+// ── TV meta handler (enriched with EPG) ─────────────────────────
+router.get("/stremio/meta/tv/:id.json", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
 
@@ -452,6 +473,19 @@ router.get("/stremio/meta/tv/:id.json", (req, res) => {
 
   if (!ch) { res.json({ meta: null }); return; }
 
+  // Try to enrich with EPG data (non-blocking — on failure just skip)
+  let epgDesc = `📡 Canal de TV en directo — ${ch.groups.join(", ")}`;
+  try {
+    await ensureEpg();
+    const { current, next } = getCurrentAndNext(ch.id);
+    if (current) {
+      const fmt = (ts: number) => new Date(ts).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
+      epgDesc = `▶ Ahora: ${current.title} (${fmt(current.start)}–${fmt(current.stop)})`;
+      if (next) epgDesc += `\n🔜 A continuación: ${next.title} (${fmt(next.start)})`;
+      if (current.desc) epgDesc += `\n\n${current.desc}`;
+    }
+  } catch { /* EPG non-blocking */ }
+
   res.json({
     meta: {
       id: `tv:${ch.id}`,
@@ -460,7 +494,7 @@ router.get("/stremio/meta/tv/:id.json", (req, res) => {
       poster: ch.logo || undefined,
       logo: ch.logo || undefined,
       genres: ch.groups,
-      description: `Canal de TV en directo. Grupos: ${ch.groups.join(", ")}`,
+      description: epgDesc,
     },
   });
 });
@@ -486,6 +520,22 @@ router.get("/stremio/stream/tv/:id.json", (req, res) => {
       },
     ],
   });
+});
+
+// ── M3U playlist download ────────────────────────────────────────
+router.get("/stremio/channels.m3u", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "application/x-mpegurl; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="canales-es.m3u"');
+  res.setHeader("Cache-Control", "public, max-age=3600");
+
+  const lines = ["#EXTM3U"];
+  for (const ch of liveChannels) {
+    const groups = ch.groups.join(";");
+    lines.push(`#EXTINF:-1 tvg-id="${ch.id}" tvg-logo="${ch.logo}" group-title="${groups}",${ch.name}`);
+    lines.push(ch.url);
+  }
+  res.send(lines.join("\n"));
 });
 
 export default router;

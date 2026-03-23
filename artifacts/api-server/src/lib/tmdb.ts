@@ -133,7 +133,10 @@ export function mapProviders(
   country: string = DEFAULT_COUNTRY,
 ): MappedProvider[] {
   const result: MappedProvider[] = [];
-  const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'rent', 'buy', 'free', 'ads'];
+  // Priority order: streaming subscription first, then free/ads, then transactional
+  const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'free', 'ads', 'rent', 'buy'];
+  // Deduplicate by provider_id — keep only the highest-priority monetization type
+  const seenProviderIds = new Set<number>();
 
   const locale = country.toUpperCase();
   const watchPageUrl = tmdbId
@@ -146,6 +149,8 @@ export function mapProviders(
     const items = providers[provType] as TmdbProvider[] | undefined;
     if (!items) continue;
     for (const prov of items) {
+      if (seenProviderIds.has(prov.provider_id)) continue;
+      seenProviderIds.add(prov.provider_id);
       const logoPath = prov.logo_path ? `https://image.tmdb.org/t/p/w185${prov.logo_path}` : null;
       result.push({
         name: prov.provider_name,
