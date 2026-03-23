@@ -112,7 +112,7 @@ export function ProviderModal({
   const heroImg = backdrop || (poster ? getTmdbImage(poster, "original") : null);
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} className="overflow-hidden">
+    <Dialog isOpen={isOpen} onClose={onClose}>
       {/* Trailer overlay */}
       {trailerOpen && details?.trailerKey && (
         <div
@@ -209,7 +209,7 @@ export function ProviderModal({
 
               {/* Overview */}
               {overview && (
-                <p className="text-white/45 text-sm leading-relaxed line-clamp-3 mb-4">{overview}</p>
+                <p className="text-white/45 text-sm leading-relaxed mb-4">{overview}</p>
               )}
 
               {/* Stat pills */}

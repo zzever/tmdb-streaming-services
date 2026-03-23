@@ -48,7 +48,7 @@ export function Dialog({ isOpen, onClose, children, className }: DialogProps) {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={cn(
-              "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-border shadow-2xl shadow-black",
+              "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-border shadow-2xl shadow-black scrollbar-hide",
               className
             )}
             onClick={(e) => e.stopPropagation()}
