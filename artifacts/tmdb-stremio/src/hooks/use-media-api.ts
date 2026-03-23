@@ -91,20 +91,31 @@ export interface DiscoverTitle {
 }
 
 export function useDiscover(
-  params: { type: "movie" | "series"; country?: string; genreId?: number | null; year?: string | null; page?: number },
+  params: {
+    type: "movie" | "series";
+    country?: string;
+    genreId?: number | null;
+    genreIds?: string | null;
+    year?: string | null;
+    page?: number;
+    originLanguage?: string | null;
+    alwaysEnabled?: boolean;
+  },
   options?: { query?: { enabled?: boolean } }
 ) {
-  const { type, country = "ES", genreId, year, page = 1 } = params;
-  const enabled = !!(genreId || year);
+  const { type, country = "ES", genreId, genreIds, year, page = 1, originLanguage, alwaysEnabled } = params;
+  const enabled = alwaysEnabled || !!(genreId || genreIds || year || originLanguage);
   return useQuery({
-    queryKey: ["discover", type, country, genreId ?? null, year ?? null, page],
+    queryKey: ["discover", type, country, genreId ?? null, genreIds ?? null, year ?? null, page, originLanguage ?? null],
     queryFn: async () => {
       const u = new URL("/api/streaming/discover", window.location.origin);
       u.searchParams.set("type", type);
       u.searchParams.set("country", country);
       u.searchParams.set("page", String(page));
       if (genreId) u.searchParams.set("genreId", String(genreId));
+      if (genreIds) u.searchParams.set("genreId", genreIds);
       if (year) u.searchParams.set("year", year);
+      if (originLanguage) u.searchParams.set("originLanguage", originLanguage);
       const res = await fetch(u.toString());
       if (!res.ok) throw new Error("Failed to fetch discover results");
       return res.json() as Promise<{ results: DiscoverTitle[]; page: number; totalPages: number }>;

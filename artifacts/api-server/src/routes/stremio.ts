@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear } from "../lib/tmdb.js";
+import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear, tmdbFetch } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
@@ -20,9 +20,9 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.3.0",
+  version: "2.4.0",
   name: "TMDB Streaming ES",
-  description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+ y más sin pasar por TMDB.",
+  description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+, Crunchyroll y más sin pasar por TMDB.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
   types: ["movie", "series"],
   resources: [
@@ -32,8 +32,10 @@ const manifest = {
   ],
   idPrefixes: ["tt"],
   catalogs: [
-    { type: "movie",  id: "popular-es", name: "🇪🇸 Populares en España" },
-    { type: "series", id: "popular-es", name: "🇪🇸 Series Populares en España" },
+    { type: "movie",  id: "popular-es",  name: "🇪🇸 Películas Populares en España" },
+    { type: "series", id: "popular-es",  name: "🇪🇸 Series Populares en España" },
+    { type: "series", id: "anime-es",    name: "🗾 Anime en España" },
+    { type: "series", id: "programas-es", name: "📺 Programas y Docs en España" },
   ],
   behaviorHints: {
     adult: false,
@@ -298,40 +300,82 @@ router.get("/stremio/meta/:type/:id.json", async (req, res) => {
   }
 });
 
-// Catalog handler — returns popular movies/series with real IMDB IDs
+// Helper: fetch discover results and build Stremio metas with IMDB IDs
+async function discoverMetas(
+  tmdbPath: string,
+  params: Record<string, string>,
+  mediaType: "movie" | "series"
+): Promise<object[]> {
+  const raw = await tmdbFetch<{ results?: any[] }>(tmdbPath, params);
+  const slice = (raw.results ?? []).slice(0, 20);
+  const imdbIds = await Promise.all(slice.map((r) => getImdbId(r.id, mediaType).catch(() => null)));
+  return slice
+    .map((r, i) => ({
+      id: imdbIds[i] ?? `tmdb:${r.id}`,
+      type: mediaType === "series" ? "series" : "movie",
+      name: r.title || r.name || "",
+      poster: posterUrl(r.poster_path ?? null),
+      year: parseYear(r) ?? undefined,
+      description: r.overview || undefined,
+      imdbRating: r.vote_average ? String(r.vote_average.toFixed(1)) : undefined,
+    }))
+    .filter((m: any) => m.id.startsWith("tt"));
+}
+
+// Catalog handler — returns popular movies/series/anime/programas with real IMDB IDs
 router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
 
   const { type, id } = req.params;
-
-  if (id.replace(/\.json$/, "") !== "popular-es") {
-    res.json({ metas: [] });
-    return;
-  }
-
+  const catalogId = id.replace(/\.json$/, "");
   const mediaType: "movie" | "series" = type === "series" ? "series" : "movie";
+  const COUNTRY = "ES";
 
   try {
-    const { results } = await getPopular(mediaType, 1);
-    const slice = results.slice(0, 20);
+    let metas: object[] = [];
 
-    // Fetch IMDB IDs in parallel — Stremio needs tt-prefixed IDs for stream lookups
-    const imdbIds = await Promise.all(
-      slice.map((r) => getImdbId(r.id, mediaType))
-    );
+    if (catalogId === "popular-es") {
+      const { results } = await getPopular(mediaType, 1);
+      const slice = results.slice(0, 20);
+      const imdbIds = await Promise.all(slice.map((r) => getImdbId(r.id, mediaType)));
+      metas = slice
+        .map((r, i) => ({
+          id: imdbIds[i] ?? `tmdb:${r.id}`,
+          type: mediaType === "series" ? "series" : "movie",
+          name: r.title || r.name || "",
+          poster: posterUrl(r.poster_path ?? null),
+          year: parseYear(r) ?? undefined,
+          description: r.overview || undefined,
+          imdbRating: r.vote_average ? String(r.vote_average.toFixed(1)) : undefined,
+        }))
+        .filter((m: any) => m.id.startsWith("tt"));
 
-    const metas = slice
-      .map((r, i) => ({
-        id: imdbIds[i] ?? `tmdb:${r.id}`,   // Fall back to tmdb: prefix if no IMDB ID
-        type: mediaType === "series" ? "series" : "movie",
-        name: r.title || r.name || "",
-        poster: posterUrl(r.poster_path ?? null),
-        year: parseYear(r) ?? undefined,
-        description: r.overview || undefined,
-        imdbRating: r.vote_average ? String(r.vote_average.toFixed(1)) : undefined,
-      }))
-      .filter((m) => m.id.startsWith("tt")); // Only expose titles with real IMDB IDs
+    } else if (catalogId === "anime-es") {
+      // Anime: Japanese animated series with streaming availability
+      metas = await discoverMetas("/discover/tv", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free|ads",
+        with_genres: "16",
+        with_original_language: "ja",
+      }, "series");
+
+    } else if (catalogId === "programas-es") {
+      // Programas: Documentaries (99), Reality (10764), Talk Shows (10767)
+      metas = await discoverMetas("/discover/tv", {
+        page: "1",
+        sort_by: "popularity.desc",
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free|ads",
+        with_genres: "99|10764|10767",
+      }, "series");
+
+    } else {
+      res.json({ metas: [] });
+      return;
+    }
 
     res.json({ metas });
   } catch (err) {

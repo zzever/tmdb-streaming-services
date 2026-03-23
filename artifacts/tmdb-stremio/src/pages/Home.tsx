@@ -10,6 +10,7 @@ import {
   type ReleaseTitle,
   type DiscoverTitle,
 } from "@/hooks/use-media-api";
+
 import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
@@ -29,6 +30,12 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
+
+// Content type constants
+type ContentType = "movie" | "series" | "anime" | "programa";
+const ANIME_GENRE_ID = "16";
+const ANIME_LANG = "ja";
+const PROGRAMA_GENRE_IDS = "99|10764|10767";
 
 // ── Release modes ──────────────────────────────────────────────
 type ReleaseMode = {
@@ -53,6 +60,109 @@ function formatDate(dateStr: string | null) {
   try {
     return new Date(dateStr).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
   } catch { return dateStr; }
+}
+
+// ── Release card with poster hover animation ──────────────────
+interface ReleaseCardProps {
+  item: ReleaseTitle;
+  onSelect: (t: ReleaseTitle) => void;
+  badgeIcon: React.ReactNode;
+  badgeColor: string;
+  badgeLabel: string;
+}
+function ReleaseCard({ item, onSelect, badgeIcon, badgeColor, badgeLabel }: ReleaseCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [posterLoaded, setPosterLoaded] = useState(false);
+  const [backdropLoaded, setBackdropLoaded] = useState(false);
+
+  const showBackdrop = isHovered && !!item.backdrop;
+
+  return (
+    <motion.div
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 380, damping: 28 }}
+      onClick={() => onSelect(item)}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      className="group relative flex flex-col cursor-pointer rounded-2xl"
+      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+    >
+      <div className="aspect-[2/3] relative overflow-hidden rounded-t-2xl bg-white/5">
+        {/* Poster */}
+        {item.poster ? (
+          <>
+            {!posterLoaded && <div className="absolute inset-0 shimmer" />}
+            <img src={item.poster} alt={item.title} onLoad={() => setPosterLoaded(true)}
+              className={`w-full h-full object-cover transition-opacity duration-500 ${posterLoaded ? (showBackdrop ? "opacity-0" : "opacity-100") : "opacity-0"}`}
+              loading="lazy" />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center"><MonitorPlay className="w-8 h-8 text-white/15" /></div>
+        )}
+
+        {/* Preload backdrop silently */}
+        {item.backdrop && !backdropLoaded && (
+          <img src={item.backdrop} alt="" aria-hidden className="sr-only" onLoad={() => setBackdropLoaded(true)} loading="lazy" />
+        )}
+
+        {/* Backdrop crossfade on hover */}
+        <AnimatePresence>
+          {showBackdrop && backdropLoaded && (
+            <motion.div key="bd" initial={{ opacity: 0, scale: 1.05 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }} className="absolute inset-0">
+              <img src={item.backdrop!} alt="" aria-hidden className="w-full h-full object-cover object-center" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+              <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                <p className="text-[10px] text-white/80 line-clamp-4 leading-relaxed">
+                  {item.overview || "Sin descripción disponible."}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Synopsis when no backdrop */}
+        {!item.backdrop && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2.5">
+            <p className="text-[10px] text-white/80 line-clamp-4 leading-relaxed">{item.overview || "Sin descripción."}</p>
+          </div>
+        )}
+
+        {/* Top gradient for badges */}
+        <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/50 to-transparent pointer-events-none z-10" />
+
+        {/* Cine/streaming badge */}
+        <div className="absolute top-1.5 left-1.5 z-10">
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5"
+            style={{ background: badgeColor, color: "rgba(255,255,255,0.92)" }}>
+            {badgeIcon}
+            {badgeLabel}
+          </span>
+        </div>
+
+        {/* Rating badge */}
+        {item.rating && item.rating > 0 && (
+          <div className="absolute top-1.5 right-1.5 z-10 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+            <Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
+            <span className="text-[10px] font-bold text-yellow-400">{item.rating.toFixed(1)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="px-2.5 pt-1.5 pb-2.5 flex flex-col gap-0.5"
+        style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)", borderRadius: "0 0 16px 16px" }}>
+        <p className="text-[11px] font-semibold text-white/75 group-hover:text-white line-clamp-2 leading-tight transition-colors">{item.title}</p>
+        {item.releaseDate && (
+          <div className="flex items-center gap-1">
+            <CalendarDays className="w-2.5 h-2.5 text-white/30 shrink-0" />
+            <span className="text-[9px] text-white/35 font-medium">{formatDate(item.releaseDate)}</span>
+          </div>
+        )}
+        {item.genres.length > 0 && <p className="text-[9px] text-white/25 line-clamp-1">{item.genres[0]}</p>}
+      </div>
+    </motion.div>
+  );
 }
 
 // ── Releases view ──────────────────────────────────────────────
@@ -147,40 +257,7 @@ function ReleasesView({ country, onSelect }: ReleasesViewProps) {
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {data.results.map((item, i) => (
               <motion.div key={`${item.tmdbId}-${i}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}>
-                <div onClick={() => onSelect(item)} className="rounded-2xl overflow-hidden cursor-pointer group"
-                  style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}>
-                  <div className="aspect-[2/3] bg-white/5 relative overflow-hidden">
-                    {item.poster ? (
-                      <img src={item.poster} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center"><MonitorPlay className="w-8 h-8 text-white/15" /></div>
-                    )}
-                    {item.rating && item.rating > 0 && (
-                      <div className="absolute top-1.5 right-1.5 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
-                        <Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
-                        <span className="text-[10px] font-bold text-yellow-400">{item.rating.toFixed(1)}</span>
-                      </div>
-                    )}
-                    {/* Cine/streaming badge on card */}
-                    <div className="absolute top-1.5 left-1.5">
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5"
-                        style={{ background: selected.badgeColor, color: "rgba(255,255,255,0.92)" }}>
-                        {BADGE_ICONS[selected.badge]}
-                        {selected.badge === "cine" ? "Cine" : selected.badge === "series" ? "Serie" : "Stream"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-2 pb-2.5">
-                    <p className="text-[11px] font-semibold text-white/75 group-hover:text-white line-clamp-2 leading-tight transition-colors mb-1">{item.title}</p>
-                    {item.releaseDate && (
-                      <div className="flex items-center gap-1">
-                        <CalendarDays className="w-2.5 h-2.5 text-white/30 shrink-0" />
-                        <span className="text-[9px] text-white/35 font-medium">{formatDate(item.releaseDate)}</span>
-                      </div>
-                    )}
-                    {item.genres.length > 0 && <p className="text-[9px] text-white/25 mt-0.5 line-clamp-1">{item.genres[0]}</p>}
-                  </div>
-                </div>
+                <ReleaseCard item={item} onSelect={onSelect} badgeIcon={BADGE_ICONS[selected.badge]} badgeColor={selected.badgeColor} badgeLabel={selected.badge === "cine" ? "Cine" : selected.badge === "series" ? "Serie" : "Stream"} />
               </motion.div>
             ))}
           </motion.div>
@@ -289,16 +366,18 @@ type ViewMode = "browse" | "lists" | "releases";
 type AnyMedia = PopularTitle | SearchResult | ReleaseTitle | DiscoverTitle;
 
 const TABS = [
-  { id: "browse-movie", label: "Películas", icon: <Film className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, type: "movie" as const },
-  { id: "browse-series", label: "Series",   icon: <Tv2 className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, type: "series" as const },
-  { id: "releases",     label: "Estrenos",  icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, type: null },
-  { id: "lists",        label: "Mis Listas",icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, type: null },
-] as const;
+  { id: "browse-movie",    label: "Películas",  icon: <Film className="w-3.5 h-3.5" />,        mode: "browse" as ViewMode, contentType: "movie" as ContentType },
+  { id: "browse-series",   label: "Series",     icon: <Tv2 className="w-3.5 h-3.5" />,          mode: "browse" as ViewMode, contentType: "series" as ContentType },
+  { id: "browse-anime",    label: "Anime",      icon: <span className="text-xs leading-none">⛩</span>, mode: "browse" as ViewMode, contentType: "anime" as ContentType },
+  { id: "browse-programa", label: "Programas",  icon: <MonitorPlay className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, contentType: "programa" as ContentType },
+  { id: "releases",        label: "Estrenos",   icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, contentType: null },
+  { id: "lists",           label: "Mis Listas", icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, contentType: null },
+];
 
 // ── Home ────────────────────────────────────────────────────────
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeType, setActiveType] = useState<"movie" | "series">("movie");
+  const [activeContentType, setActiveContentType] = useState<ContentType>("movie");
   const [viewMode, setViewMode] = useState<ViewMode>("browse");
   const [showAddList, setShowAddList] = useState(false);
   const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
@@ -309,37 +388,63 @@ export default function Home() {
 
   const [selectedMedia, setSelectedMedia] = useState<AnyMedia | null>(null);
 
+  // Map ContentType to TMDB type
+  const tmdbType: "movie" | "series" =
+    activeContentType === "movie" ? "movie" : "series";
+
   const isSearching = debouncedQuery.length > 2;
   const isFiltering = !isSearching && selectedGenreId !== null;
+  const isAnime = activeContentType === "anime";
+  const isPrograma = activeContentType === "programa";
+  const isSpecialBrowse = isAnime || isPrograma;
 
-  // Popular (no filter)
+  // Popular (movie/series only, not anime/programa)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
-    { type: activeType, page: 1, country: locale.code },
-    { query: { enabled: !isSearching && !isFiltering && viewMode === "browse" } }
+    { type: tmdbType, page: 1, country: locale.code },
+    { query: { enabled: !isSearching && !isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
-  // Genre / discover filter
+  // Genre filter for movie/series
   const { data: discoverData, isLoading: isLoadingDiscover } = useDiscover(
-    { type: activeType, country: locale.code, genreId: selectedGenreId, page: 1 },
-    { query: { enabled: isFiltering && viewMode === "browse" } }
+    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page: 1 },
+    { query: { enabled: isFiltering && !isSpecialBrowse && viewMode === "browse" } }
+  );
+
+  // Anime discover — always fetches when on anime tab
+  const { data: animeData, isLoading: isLoadingAnime } = useDiscover(
+    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page: 1, alwaysEnabled: true },
+    { query: { enabled: isAnime && !isSearching && viewMode === "browse" } }
+  );
+
+  // Programa discover — always fetches when on programa tab
+  const { data: programaData, isLoading: isLoadingPrograma } = useDiscover(
+    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, page: 1, alwaysEnabled: true },
+    { query: { enabled: isPrograma && !isSearching && viewMode === "browse" } }
   );
 
   // Search
   const { data: searchData, isLoading: isLoadingSearch } = useSearchTitles(
-    { query: debouncedQuery, type: activeType },
+    { query: debouncedQuery, type: tmdbType },
     { query: { enabled: isSearching } }
   );
 
   const displayedData: any[] | undefined =
-    isSearching  ? searchData?.results
+    isSearching   ? searchData?.results
+    : isAnime     ? animeData?.results
+    : isPrograma  ? programaData?.results
     : isFiltering ? discoverData?.results
     : popularData?.results;
 
-  const isLoading = isSearching ? isLoadingSearch : isFiltering ? isLoadingDiscover : isLoadingPopular;
+  const isLoading =
+    isSearching  ? isLoadingSearch
+    : isAnime    ? isLoadingAnime
+    : isPrograma ? isLoadingPrograma
+    : isFiltering ? isLoadingDiscover
+    : isLoadingPopular;
 
   // Change type: reset genre filter
-  const handleTypeChange = useCallback((t: "movie" | "series") => {
-    setActiveType(t);
+  const handleTypeChange = useCallback((ct: ContentType) => {
+    setActiveContentType(ct);
     setSelectedGenreId(null);
   }, []);
 
@@ -348,15 +453,15 @@ export default function Home() {
     if (isLoadingRandom) return;
     setIsLoadingRandom(true);
     try {
-      const result = await fetchRandomTitle(activeType, locale.code);
+      const result = await fetchRandomTitle(tmdbType, locale.code);
       if (result) setSelectedMedia(result);
     } finally {
       setIsLoadingRandom(false);
     }
-  }, [activeType, locale.code, isLoadingRandom]);
+  }, [tmdbType, locale.code, isLoadingRandom]);
 
   const activeGenreName = (() => {
-    const genres = activeType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
+    const genres = activeContentType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
     return genres.find((g) => g.id === selectedGenreId)?.name ?? null;
   })();
 
@@ -366,7 +471,7 @@ export default function Home() {
       <div className="orb orb-2" />
       <div className="orb orb-3" />
 
-      <Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeType={activeType} setActiveType={setActiveType} />
+      <Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeType={tmdbType} setActiveType={(t) => handleTypeChange(t)} />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
 
@@ -376,15 +481,15 @@ export default function Home() {
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
             {TABS.map((tab) => {
               const isActive =
-                tab.mode === "lists"    ? viewMode === "lists"
+                tab.mode === "lists"     ? viewMode === "lists"
                 : tab.mode === "releases" ? viewMode === "releases"
-                : viewMode === "browse" && activeType === tab.type;
+                : viewMode === "browse" && activeContentType === tab.contentType;
               return (
                 <button key={tab.id}
                   onClick={() => {
-                    if (tab.mode === "lists")    { setViewMode("lists"); }
+                    if (tab.mode === "lists")         { setViewMode("lists"); }
                     else if (tab.mode === "releases") { setViewMode("releases"); }
-                    else { setViewMode("browse"); handleTypeChange(tab.type!); }
+                    else { setViewMode("browse"); handleTypeChange(tab.contentType!); }
                   }}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
                     isActive ? "text-white bg-white/10 shadow-sm" : "text-white/35 hover:text-white/60"
@@ -432,9 +537,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ── Genre filter bar (browse mode only, no search) ── */}
+        {/* ── Genre filter bar (browse mode, movie/series only, no search) ── */}
         <AnimatePresence>
-          {viewMode === "browse" && !isSearching && (
+          {viewMode === "browse" && !isSearching && !isSpecialBrowse && (
             <motion.div
               key="genre-bar"
               initial={{ opacity: 0, height: 0 }}
@@ -443,7 +548,7 @@ export default function Home() {
               className="mb-5 overflow-hidden"
             >
               <div className="flex items-center gap-3">
-                <GenreChips type={activeType} selectedId={selectedGenreId} onSelect={setSelectedGenreId} />
+                <GenreChips type={tmdbType} selectedId={selectedGenreId} onSelect={setSelectedGenreId} />
                 {activeGenreName && (
                   <button
                     onClick={() => setSelectedGenreId(null)}
@@ -484,16 +589,16 @@ export default function Home() {
                 ))}
               </motion.div>
             ) : displayedData && displayedData.length > 0 ? (
-              <motion.div key={`${activeType}-${selectedGenreId}-${debouncedQuery}`}
+              <motion.div key={`${activeContentType}-${selectedGenreId}-${debouncedQuery}`}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
                 {displayedData.map((item, i) => (
                   <motion.div key={`${item.tmdbId}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03, duration: 0.35, ease: "easeOut" }}>
                     <MediaCard media={item} onClick={setSelectedMedia} onGenreClick={(g) => {
-                      const genres = activeType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
+                      const genres = tmdbType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
                       const found = genres.find((x) => x.name.toLowerCase() === g.toLowerCase());
-                      if (found) { setSelectedGenreId(found.id); setViewMode("browse"); }
+                      if (found && !isSpecialBrowse) { setSelectedGenreId(found.id); setViewMode("browse"); }
                     }} />
                   </motion.div>
                 ))}
@@ -509,7 +614,7 @@ export default function Home() {
                 <p className="text-white/30 text-sm max-w-sm">
                   {isSearching
                     ? `No encontramos resultados para "${debouncedQuery}".`
-                    : `No hay ${activeType === "movie" ? "películas" : "series"} disponibles con ese filtro.`}
+                    : `No hay contenido disponible con ese filtro.`}
                 </p>
                 {(isSearching || isFiltering) && (
                   <button onClick={() => { setSearchQuery(""); setSelectedGenreId(null); }}

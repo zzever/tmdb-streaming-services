@@ -317,16 +317,22 @@ router.get("/streaming/discover", async (req, res) => {
   const genreId = String(req.query.genreId ?? "");
   const year = String(req.query.year ?? "");
   const page = String(req.query.page ?? "1");
+  // Extra: originLanguage (e.g. "ja" for anime), withoutGenres (pipe-sep genre IDs to exclude)
+  const originLanguage = String(req.query.originLanguage ?? "");
+  const withoutGenres = String(req.query.withoutGenres ?? "");
+  const sortBy = String(req.query.sortBy ?? "popularity.desc");
 
   try {
     const path = type === "series" ? "/discover/tv" : "/discover/movie";
     const params: Record<string, string> = {
       page,
-      sort_by: "popularity.desc",
+      sort_by: sortBy,
       watch_region: country.toUpperCase(),
       with_watch_monetization_types: "flatrate|free|ads",
     };
     if (genreId) params.with_genres = genreId;
+    if (withoutGenres) params.without_genres = withoutGenres;
+    if (originLanguage) params.with_original_language = originLanguage;
     if (year) {
       if (type === "movie") {
         params.primary_release_year = year;
