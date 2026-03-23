@@ -19,6 +19,40 @@ const AMBIT_TO_GROUP: Record<string, string> = {
   "R. de Murcia": "Regional",
 };
 
+function fixStreamtheworldUrl(url: string): string {
+  const m = url.match(/playerservices\.streamtheworld\.com\/api\/livestream-redirect\/(.+)$/i);
+  if (m) return `https://25683.live.streamtheworld.com/${m[1]}`;
+  return url;
+}
+
+function normalizeChannelName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, " ").replace(/[^a-z0-9 ]/g, "");
+}
+
+function deduplicateChannels(channels: LiveChannel[]): LiveChannel[] {
+  const seenUrl = new Set<string>();
+  const seenName = new Map<string, number>();
+  const result: LiveChannel[] = [];
+
+  for (const ch of channels) {
+    const urlKey = ch.url.toLowerCase().trim();
+    if (seenUrl.has(urlKey)) continue;
+    seenUrl.add(urlKey);
+
+    const nameKey = normalizeChannelName(ch.name);
+    if (seenName.has(nameKey)) {
+      const existingIdx = seenName.get(nameKey)!;
+      const existing = result[existingIdx];
+      const mergedGroups = [...new Set([...existing.groups, ...ch.groups])];
+      result[existingIdx] = { ...existing, groups: mergedGroups };
+    } else {
+      seenName.set(nameKey, result.length);
+      result.push(ch);
+    }
+  }
+  return result;
+}
+
 function parseBouquetChannels(filename: string, defaultGroup: string): LiveChannel[] {
   const filePath = resolve(ASSETS_DIR, filename);
   if (!existsSync(filePath)) return [];
@@ -95,8 +129,9 @@ export async function getLiveChannels(): Promise<LiveChannel[]> {
         const logoM = line.match(/tvg-logo="([^"]*)"/);
         const idM   = line.match(/tvg-id="([^"]*)"/);
         const nameM = line.match(/,(.+)$/);
-        const url   = lines[i + 1]?.trim();
+        let url = lines[i + 1]?.trim();
         if (!url || !nameM || url.startsWith("#")) continue;
+        url = fixStreamtheworldUrl(url);
         channels.push({ id: idM?.[1] ?? nameM[1].trim().replace(/\s+/g, ""), name: nameM[1].trim(), logo: logoM?.[1] ?? "", groups: ["Radio"], url });
       }
     }
@@ -108,8 +143,10 @@ export async function getLiveChannels(): Promise<LiveChannel[]> {
 
   channels.push(...spainExtra, ...usaChannels.slice(0, 300), ...musicChs);
 
-  if (channels.length > 0) {
-    cache = channels;
+  const deduped = deduplicateChannels(channels);
+
+  if (deduped.length > 0) {
+    cache = deduped;
     cachedAt = Date.now();
   }
   return cache;

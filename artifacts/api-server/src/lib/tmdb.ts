@@ -302,13 +302,20 @@ export interface RichDetails {
   faVotes: number | null;
 }
 
+const FA_CX = "008177178803676006601%3Amrme5orikjy";
+
+function buildFaGlobalSearchUrl(query: string): string {
+  return `https://www.filmaffinity.com/es/globalsearch.php?cx=${FA_CX}&cof=FORID%3A9&q=${encodeURIComponent(query)}&ie=latin1`;
+}
+
 async function fetchFilmAffinityRating(
   title: string,
-  year: number | null
+  year: number | null,
+  director?: string | null
 ): Promise<{ rating: number | null; url: string | null; votes: number | null }> {
   try {
-    const query = encodeURIComponent(`${title}${year ? ` ${year}` : ''}`);
-    const searchUrl = `https://www.filmaffinity.com/es/advsearch.php?stext=${query}&stype%5B%5D=title&stype%5B%5D=director&stype%5B%5D=cast&stype%5B%5D=script&stype%5B%5D=photo`;
+    const query = `${title}${year ? ` ${year}` : ''}${director ? ` ${director}` : ''}`;
+    const searchUrl = buildFaGlobalSearchUrl(query);
     const res = await fetch(searchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -318,7 +325,7 @@ async function fetchFilmAffinityRating(
       },
       signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return { rating: null, url: null, votes: null };
+    if (!res.ok) return { rating: null, url: searchUrl, votes: null };
     const html = await res.text();
     const filmMatch = html.match(/href="(\/es\/film(\d+)\.html)"/);
     if (!filmMatch) return { rating: null, url: searchUrl, votes: null };
@@ -359,7 +366,8 @@ export async function getTitleRichDetails(
   const faTitle = raw.title || raw.name || '';
   const faYearRaw = raw.release_date || raw.first_air_date || '';
   const faYear = faYearRaw ? parseInt(faYearRaw.slice(0, 4), 10) : null;
-  const faData = await fetchFilmAffinityRating(faTitle, faYear);
+  const faDirector = (raw.credits?.crew ?? []).find((c: any) => c.job === 'Director')?.name ?? null;
+  const faData = await fetchFilmAffinityRating(faTitle, faYear, faDirector);
 
   // Director / creator
   const crew: any[] = raw.credits?.crew ?? [];
