@@ -1,8 +1,6 @@
 import { Router, type IRouter } from "express";
 import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear, tmdbFetch } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
-import { ensureEpg, getCurrentAndNext } from "../lib/epg.js";
-import { getLiveChannels, type LiveChannel } from "../lib/live-channels.js";
 
 const router: IRouter = Router();
 
@@ -22,19 +20,17 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.11.0",
+  version: "2.12.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming en España. URLs directas vía JustWatch — Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll (anime), Rakuten TV, Pluto TV, Filmin, Movistar+ (programas), Mitele. Anime Kitsu. Conciertos: YouTube Music + Archive.org.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
-  types: ["movie", "series", "tv"],
+  types: ["movie", "series"],
   resources: [
     { name: "stream",   types: ["movie", "series"], idPrefixes: ["tt"] },
     { name: "meta",     types: ["movie", "series"], idPrefixes: ["tt"] },
-    { name: "meta",     types: ["tv"],              idPrefixes: ["tv:"] },
-    { name: "stream",   types: ["tv"],              idPrefixes: ["tv:"] },
-    { name: "catalog",  types: ["movie", "series", "tv"] },
+    { name: "catalog",  types: ["movie", "series"] },
   ],
-  idPrefixes: ["tt", "tv:"],
+  idPrefixes: ["tt"],
   catalogs: [
     { type: "movie",  id: "popular-es",   name: "🇪🇸 Películas Populares en España" },
     { type: "movie",  id: "peliculas-es", name: "🎬 Películas en Español" },
@@ -45,7 +41,6 @@ const manifest = {
     { type: "movie",  id: "crunchyroll-anime-movies", name: "🦊 Anime Crunchyroll · Películas" },
     { type: "movie",  id: "anime-movies-es", name: "🗾 Anime Películas" },
     { type: "series", id: "programas-es", name: "📺 Programas y Docs en España" },
-    { type: "tv",     id: "live-es",      name: "📡 TV en Directo España" },
     { type: "movie",  id: "estrenos-streaming-es", name: "🆕 Nuevos en Streaming España" },
     { type: "series", id: "estrenos-streaming-es", name: "🆕 Nuevas Series en Streaming España" },
     { type: "movie",  id: "actor-es", name: "🎭 Por Actor (buscar)", extra: [{ name: "search", isRequired: true }] },
@@ -504,98 +499,5 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
   }
 });
 
-// ── TV catalog (live channels) ──────────────────────────────────
-router.get("/stremio/catalog/tv/:catalogId.json", async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Cache-Control", "public, max-age=300");
-
-  const catalogId = req.params.catalogId.replace(/\.json$/, "");
-  if (catalogId !== "live-es") { res.json({ metas: [] }); return; }
-
-  const liveChannels = await getLiveChannels();
-  const metas = liveChannels.slice(0, 300).map((ch) => ({
-    id: `tv:${ch.id}`,
-    type: "tv",
-    name: ch.name,
-    poster: ch.logo || undefined,
-    logo: ch.logo || undefined,
-    genres: ch.groups,
-    background: ch.logo || undefined,
-  }));
-  res.json({ metas });
-});
-
-// ── TV meta handler (enriched with EPG) ─────────────────────────
-router.get("/stremio/meta/tv/:id.json", async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "application/json");
-
-  const rawId = req.params.id.replace(/\.json$/, "");
-  const chId = rawId.startsWith("tv:") ? rawId.slice(3) : rawId;
-  const channels = await getLiveChannels();
-  const ch = channels.find((c) => c.id === chId);
-
-  if (!ch) { res.json({ meta: null }); return; }
-
-  // Try to enrich with EPG data (non-blocking — on failure just skip)
-  let epgDesc = `📡 Canal de TV en directo — ${ch.groups.join(", ")}`;
-  try {
-    await ensureEpg();
-    const { current, next } = getCurrentAndNext(ch.id);
-    if (current) {
-      const fmt = (ts: number) => new Date(ts).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
-      epgDesc = `▶ Ahora: ${current.title} (${fmt(current.start)}–${fmt(current.stop)})`;
-      if (next) epgDesc += `\n🔜 A continuación: ${next.title} (${fmt(next.start)})`;
-      if (current.desc) epgDesc += `\n\n${current.desc}`;
-    }
-  } catch { /* EPG non-blocking */ }
-
-  res.json({
-    meta: {
-      id: `tv:${ch.id}`,
-      type: "tv",
-      name: ch.name,
-      poster: ch.logo || undefined,
-      logo: ch.logo || undefined,
-      genres: ch.groups,
-      description: epgDesc,
-    },
-  });
-});
-
-// ── TV stream handler ────────────────────────────────────────────
-router.get("/stremio/stream/tv/:id.json", async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "application/json");
-
-  const rawId = req.params.id.replace(/\.json$/, "");
-  const chId = rawId.startsWith("tv:") ? rawId.slice(3) : rawId;
-  const channels = await getLiveChannels();
-  const ch = channels.find((c) => c.id === chId);
-
-  if (!ch || !ch.url) { res.json({ streams: [] }); return; }
-
-  res.json({
-    streams: [{ name: ch.name, title: "📡 TV en Directo", url: ch.url, behaviorHints: { notWebReady: false } }],
-  });
-});
-
-// ── M3U playlist download ────────────────────────────────────────
-router.get("/stremio/channels.m3u", async (_req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "application/x-mpegurl; charset=utf-8");
-  res.setHeader("Content-Disposition", 'attachment; filename="canales-es.m3u"');
-  res.setHeader("Cache-Control", "public, max-age=3600");
-
-  const channels = await getLiveChannels();
-  const lines = ["#EXTM3U"];
-  for (const ch of channels) {
-    const groups = ch.groups.join(";");
-    lines.push(`#EXTINF:-1 tvg-id="${ch.id}" tvg-logo="${ch.logo}" group-title="${groups}",${ch.name}`);
-    lines.push(ch.url);
-  }
-  res.send(lines.join("\n"));
-});
 
 export default router;
