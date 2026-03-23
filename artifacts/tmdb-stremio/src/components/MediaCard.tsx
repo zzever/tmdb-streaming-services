@@ -5,11 +5,12 @@ import { MonitorPlay, Star } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 
 interface MediaCardProps {
-  media: PopularTitle | SearchResult;
-  onClick: (media: PopularTitle | SearchResult) => void;
+  media: PopularTitle | SearchResult | any;
+  onClick: (media: any) => void;
+  onGenreClick?: (genre: string) => void;
 }
 
-export function MediaCard({ media, onClick }: MediaCardProps) {
+export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
@@ -168,14 +169,25 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
           {media.title}
         </h3>
         <div className="flex items-center gap-1 overflow-hidden">
-          {(media.genres ?? []).slice(0, 2).map((g) => (
-            <span
-              key={g}
-              className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-medium text-white/40 whitespace-nowrap"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
-            >
-              {g}
-            </span>
+          {(media.genres ?? []).slice(0, 2).map((g: string) => (
+            onGenreClick ? (
+              <button
+                key={g}
+                onClick={(e) => { e.stopPropagation(); onGenreClick(g); }}
+                className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-medium text-white/40 hover:text-white/80 hover:bg-white/10 whitespace-nowrap transition-colors cursor-pointer"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                {g}
+              </button>
+            ) : (
+              <span
+                key={g}
+                className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-medium text-white/40 whitespace-nowrap"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                {g}
+              </span>
+            )
           ))}
         </div>
         <div className="flex items-center gap-2">

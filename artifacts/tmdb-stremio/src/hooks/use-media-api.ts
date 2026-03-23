@@ -15,6 +15,36 @@ export {
   useGetList,
 };
 
+// ── Genre/metadata IDs used by TMDB discover API ──
+export const MOVIE_GENRES: { id: number; name: string }[] = [
+  { id: 28, name: "Acción" },
+  { id: 35, name: "Comedia" },
+  { id: 18, name: "Drama" },
+  { id: 27, name: "Terror" },
+  { id: 878, name: "Ciencia ficción" },
+  { id: 10749, name: "Romance" },
+  { id: 16, name: "Animación" },
+  { id: 53, name: "Thriller" },
+  { id: 80, name: "Crimen" },
+  { id: 12, name: "Aventura" },
+  { id: 14, name: "Fantasía" },
+  { id: 99, name: "Documental" },
+];
+
+export const SERIES_GENRES: { id: number; name: string }[] = [
+  { id: 10759, name: "Acción" },
+  { id: 35, name: "Comedia" },
+  { id: 18, name: "Drama" },
+  { id: 10765, name: "Sci-Fi / Fantasía" },
+  { id: 80, name: "Crimen" },
+  { id: 10768, name: "Guerra / Política" },
+  { id: 16, name: "Animación" },
+  { id: 99, name: "Documental" },
+  { id: 10751, name: "Familia" },
+  { id: 9648, name: "Misterio" },
+];
+
+// ── Releases ──
 export interface ReleaseTitle {
   tmdbId: number;
   title: string;
@@ -46,6 +76,52 @@ export function useGetReleases(
   });
 }
 
+// ── Discover (genre/year filter) ──
+export interface DiscoverTitle {
+  imdbId: string | null;
+  tmdbId: number;
+  title: string;
+  type: "movie" | "series";
+  year: number | null;
+  poster: string | null;
+  backdrop: string | null;
+  overview: string | null;
+  rating: number | null;
+  genres: string[];
+}
+
+export function useDiscover(
+  params: { type: "movie" | "series"; country?: string; genreId?: number | null; year?: string | null; page?: number },
+  options?: { query?: { enabled?: boolean } }
+) {
+  const { type, country = "ES", genreId, year, page = 1 } = params;
+  const enabled = !!(genreId || year);
+  return useQuery({
+    queryKey: ["discover", type, country, genreId ?? null, year ?? null, page],
+    queryFn: async () => {
+      const u = new URL("/api/streaming/discover", window.location.origin);
+      u.searchParams.set("type", type);
+      u.searchParams.set("country", country);
+      u.searchParams.set("page", String(page));
+      if (genreId) u.searchParams.set("genreId", String(genreId));
+      if (year) u.searchParams.set("year", year);
+      const res = await fetch(u.toString());
+      if (!res.ok) throw new Error("Failed to fetch discover results");
+      return res.json() as Promise<{ results: DiscoverTitle[]; page: number; totalPages: number }>;
+    },
+    enabled: enabled && options?.query?.enabled !== false,
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
+// ── Random title (beyond the top 20 shown) ──
+export async function fetchRandomTitle(type: "movie" | "series", country: string): Promise<DiscoverTitle | null> {
+  const res = await fetch(`/api/streaming/random?type=${type}&country=${country}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// ── Person filmography ──
 export interface PersonCredit {
   tmdbId: number;
   title: string;

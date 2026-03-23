@@ -18,6 +18,7 @@ import {
   mapGenres,
   getTitleRichDetails,
   getTmdbBasicById,
+  tmdbFetch,
 } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 
@@ -306,6 +307,93 @@ router.get("/streaming/details", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error fetching title details");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch details" });
+  }
+});
+
+// Discover by genre/year filter
+router.get("/streaming/discover", async (req, res) => {
+  const type = String(req.query.type ?? "movie") as "movie" | "series";
+  const country = String(req.query.country ?? "ES");
+  const genreId = String(req.query.genreId ?? "");
+  const year = String(req.query.year ?? "");
+  const page = String(req.query.page ?? "1");
+
+  try {
+    const path = type === "series" ? "/discover/tv" : "/discover/movie";
+    const params: Record<string, string> = {
+      page,
+      sort_by: "popularity.desc",
+      watch_region: country.toUpperCase(),
+      with_watch_monetization_types: "flatrate|free|ads",
+    };
+    if (genreId) params.with_genres = genreId;
+    if (year) {
+      if (type === "movie") {
+        params.primary_release_year = year;
+      } else {
+        params.first_air_date_year = year;
+      }
+    }
+
+    const raw = await tmdbFetch<{ results?: any[]; total_pages?: number }>(path, params);
+
+    const results = (raw.results ?? []).slice(0, 20).map((r: any) => ({
+      imdbId: null,
+      tmdbId: r.id,
+      title: r.title || r.name || "",
+      type: type === "series" ? "series" : "movie",
+      year: r.release_date ? parseInt(r.release_date.slice(0, 4), 10) : (r.first_air_date ? parseInt(r.first_air_date.slice(0, 4), 10) : null),
+      poster: posterUrl(r.poster_path),
+      backdrop: backdropUrl(r.backdrop_path),
+      overview: r.overview || null,
+      rating: r.vote_average ?? null,
+      genres: mapGenres(r.genre_ids),
+    }));
+
+    res.json({ results, page: Number(page), totalPages: raw.total_pages ?? 1 });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching discover results");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch discover results" });
+  }
+});
+
+// Random title — picks from a random page of popular to go beyond the top 20
+router.get("/streaming/random", async (req, res) => {
+  const type = String(req.query.type ?? "movie") as "movie" | "series";
+  const country = String(req.query.country ?? "ES");
+
+  try {
+    const randomPage = Math.floor(Math.random() * 10) + 1;
+    const { results, totalPages } = await getPopular(type === "series" ? "series" : "movie", randomPage, country);
+    if (!results.length) {
+      res.status(404).json({ error: "Not Found" });
+      return;
+    }
+    const r = results[Math.floor(Math.random() * results.length)];
+    const [imdbId, providersResult] = await Promise.all([
+      getImdbId(r.id, type === "series" ? "series" : "movie").catch(() => null),
+      getWatchProviders(r.id, type === "series" ? "series" : "movie", country).catch(() => null),
+    ]);
+    const providers = providersResult
+      ? mapProviders(providersResult.data, providersResult.watchUrl, r.id, type === "series" ? "series" : "movie", country)
+      : [];
+
+    res.json({
+      imdbId: imdbId ?? null,
+      tmdbId: r.id,
+      title: r.title || r.name || "",
+      type: type === "series" ? "series" : "movie",
+      year: parseYear(r),
+      poster: posterUrl(r.poster_path),
+      backdrop: backdropUrl(r.backdrop_path),
+      overview: r.overview || null,
+      rating: r.vote_average ?? null,
+      genres: mapGenres(r.genre_ids),
+      providers,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching random title");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch random title" });
   }
 });
 
