@@ -5,7 +5,7 @@ import { getTmdbImage } from "@/lib/utils";
 import { WATCH_LOCALES } from "@/lib/locales";
 import {
   Loader2, MonitorPlay, AlertCircle, ExternalLink,
-  Clock, Star, Film, Globe, Users, Play, ChevronRight,
+  Clock, Star, Film, Globe, Users, Play, ChevronRight, Search,
 } from "lucide-react";
 import type { StreamingProvider } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
@@ -31,10 +31,9 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; border: string
   flatrate: { label: "Suscripción", color: "text-blue-400",   border: "border-blue-500/30",   bg: "bg-blue-500/8" },
   free:     { label: "Gratis",      color: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/8" },
   ads:      { label: "Con anuncios",color: "text-violet-400",  border: "border-violet-500/30",  bg: "bg-violet-500/8" },
-  rent:     { label: "Alquiler",    color: "text-amber-400",   border: "border-amber-500/30",   bg: "bg-amber-500/8" },
-  buy:      { label: "Compra",      color: "text-green-400",   border: "border-green-500/30",   bg: "bg-green-500/8" },
 };
-const TYPE_ORDER = ["flatrate", "free", "ads", "rent", "buy"];
+const TYPE_ORDER = ["flatrate", "free", "ads"];
+const ALLOWED_TYPES = new Set(TYPE_ORDER);
 
 function fmt(n: number) {
   if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
@@ -98,7 +97,8 @@ export function ProviderModal({
     { query: { enabled: isOpen && !!tmdbId } }
   );
 
-  const providers = initialProviders?.length ? initialProviders : providersData?.providers || [];
+  const allProviders = initialProviders?.length ? initialProviders : providersData?.providers || [];
+  const providers = allProviders.filter((p) => ALLOWED_TYPES.has(p.type));
   const localeInfo = WATCH_LOCALES.find((l) => l.code === (country ?? "ES")) ?? WATCH_LOCALES.find((l) => l.code === "ES")!;
 
   const groupedProviders = TYPE_ORDER.reduce((acc, t) => {
@@ -106,6 +106,8 @@ export function ProviderModal({
     if (group.length > 0) acc[t] = group;
     return acc;
   }, {} as Record<string, StreamingProvider[]>);
+
+  const stremioSearchUrl = `https://web.strem.io/#/search?search=${encodeURIComponent(title)}`;
 
   const heroImg = backdrop || (poster ? getTmdbImage(poster, "original") : null);
 
@@ -237,17 +239,29 @@ export function ProviderModal({
                 </div>
               )}
 
-              {/* Trailer button */}
-              {details?.trailerKey && (
-                <button
-                  onClick={() => setTrailerOpen(true)}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:brightness-110"
-                  style={{ background: "rgba(229,9,20,0.15)", border: "1px solid rgba(229,9,20,0.3)" }}
+              {/* Action buttons */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {details?.trailerKey && (
+                  <button
+                    onClick={() => setTrailerOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:brightness-110"
+                    style={{ background: "rgba(229,9,20,0.15)", border: "1px solid rgba(229,9,20,0.3)" }}
+                  >
+                    <Play className="w-4 h-4 fill-primary text-primary" />
+                    Ver tráiler
+                  </button>
+                )}
+                <a
+                  href={stremioSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white/70 hover:text-white transition-all duration-200 hover:brightness-110"
+                  style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)" }}
                 >
-                  <Play className="w-4 h-4 fill-primary text-primary" />
-                  Ver tráiler
-                </button>
-              )}
+                  <Search className="w-4 h-4 text-indigo-400" />
+                  Buscar en Stremio
+                </a>
+              </div>
             </div>
           </div>
 

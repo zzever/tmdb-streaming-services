@@ -10,32 +10,39 @@ interface MediaCardProps {
 }
 
 export function MediaCard({ media, onClick }: MediaCardProps) {
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [posterLoaded, setPosterLoaded] = useState(false);
+  const [backdropLoaded, setBackdropLoaded] = useState(false);
+
   const isPopularTitle = "providers" in media;
   const providers = isPopularTitle ? (media as PopularTitle).providers ?? [] : [];
-  const displayProviders = providers.filter((p) => p.type === "flatrate" || p.type === "free").slice(0, 3);
-  const extraCount = providers.filter((p) => p.type === "flatrate" || p.type === "free").length - displayProviders.length;
+  const displayProviders = providers
+    .filter((p) => p.type === "flatrate" || p.type === "free" || p.type === "ads")
+    .slice(0, 3);
+  const extraCount =
+    providers.filter((p) => p.type === "flatrate" || p.type === "free" || p.type === "ads").length -
+    displayProviders.length;
+
+  const backdropSrc = media.backdrop ? getTmdbImage(media.backdrop, "w780") : null;
+  const posterSrc   = media.poster   ? getTmdbImage(media.poster, "w500")   : null;
 
   return (
     <motion.div
-      whileHover={{ y: -6, scale: 1.02 }}
+      whileHover={{ y: -5, scale: 1.015 }}
       transition={{ type: "spring", stiffness: 380, damping: 28 }}
       onClick={() => onClick(media)}
-      className="group relative flex flex-col cursor-pointer rounded-2xl overflow-hidden glow-card hover:glow-card-hover transition-shadow duration-300"
+      className="group relative flex flex-col cursor-pointer rounded-2xl glow-card hover:glow-card-hover transition-shadow duration-300"
       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
     >
-      {/* Poster */}
-      <div className="relative aspect-[2/3] w-full overflow-hidden bg-[rgba(255,255,255,0.04)]">
-        {media.poster ? (
+      {/* ── Poster area ── */}
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-t-2xl bg-[rgba(255,255,255,0.04)]">
+        {posterSrc ? (
           <>
-            {!imgLoaded && (
-              <div className="absolute inset-0 shimmer" />
-            )}
+            {!posterLoaded && <div className="absolute inset-0 shimmer" />}
             <img
-              src={getTmdbImage(media.poster, "w500") || ""}
+              src={posterSrc}
               alt={media.title}
-              onLoad={() => setImgLoaded(true)}
-              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+              onLoad={() => setPosterLoaded(true)}
+              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${posterLoaded ? "opacity-100" : "opacity-0"}`}
               loading="lazy"
             />
           </>
@@ -46,9 +53,9 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
           </div>
         )}
 
-        {/* Hover overlay */}
+        {/* Hover overlay: synopsis */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-          <p className="text-[11px] text-white/75 line-clamp-4 leading-relaxed">
+          <p className="text-[11px] text-white/80 line-clamp-5 leading-relaxed">
             {media.overview || "Sin descripción disponible."}
           </p>
         </div>
@@ -56,7 +63,7 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
         {/* Top gradient for badges */}
         <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
 
-        {/* Rating */}
+        {/* Rating badge */}
         {media.rating && media.rating > 0 && (
           <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-white/10 z-10">
             <Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
@@ -95,28 +102,64 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
         )}
       </div>
 
-      {/* Info */}
-      <div className="px-3 pt-2.5 pb-3 flex flex-col gap-1.5" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <h3 className="font-display font-semibold text-white/90 text-sm leading-tight line-clamp-1 group-hover:text-white transition-colors">
+      {/* ── Backdrop strip (second fanart) ── */}
+      <div className="relative w-full overflow-hidden bg-[rgba(255,255,255,0.02)]" style={{ aspectRatio: "16/5" }}>
+        {backdropSrc ? (
+          <>
+            {!backdropLoaded && <div className="absolute inset-0 shimmer" />}
+            <img
+              src={backdropSrc}
+              alt=""
+              aria-hidden
+              onLoad={() => setBackdropLoaded(true)}
+              className={`w-full h-full object-cover object-center transition-all duration-700 group-hover:scale-105 group-hover:brightness-110 ${backdropLoaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
+            />
+          </>
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(229,9,20,0.06) 0%, rgba(99,102,241,0.06) 100%)",
+            }}
+          />
+        )}
+        {/* Fade out edges */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d16]/80 to-transparent pointer-events-none" />
+      </div>
+
+      {/* ── Info bar — always fully visible ── */}
+      <div
+        className="px-3 pt-2 pb-2.5 flex flex-col gap-1"
+        style={{
+          background: "rgba(255,255,255,0.02)",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+          borderRadius: "0 0 16px 16px",
+        }}
+      >
+        <h3 className="font-display font-semibold text-white/90 text-sm leading-tight truncate group-hover:text-white transition-colors">
           {media.title}
         </h3>
-        {/* Genres */}
-        {media.genres && media.genres.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {media.genres.slice(0, 2).map((g) => (
-              <span
-                key={g}
-                className="text-[9px] px-1.5 py-0.5 rounded-md font-medium text-white/40"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
-              >
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center justify-between mt-0.5">
-          <span className="text-[11px] text-white/30 font-medium">{media.year || "—"}</span>
-          <span className="text-[9px] uppercase tracking-widest font-semibold text-white/20 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5">
+
+        {/* Genres row — max 2 chips, never wraps */}
+        <div className="flex items-center gap-1 overflow-hidden">
+          {(media.genres ?? []).slice(0, 2).map((g) => (
+            <span
+              key={g}
+              className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-medium text-white/40 whitespace-nowrap"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              {g}
+            </span>
+          ))}
+        </div>
+
+        {/* Year + type — always on same line */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-white/30 font-medium shrink-0">{media.year || "—"}</span>
+          <span className="text-[9px] uppercase tracking-widest font-semibold text-white/20 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5 shrink-0">
             {media.type === "series" ? "Serie" : "Film"}
           </span>
         </div>
