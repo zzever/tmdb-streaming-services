@@ -59,12 +59,11 @@ const manifest = {
   },
 };
 
-const TYPE_ORDER = ["flatrate", "free", "ads", "rent", "buy"];
+const TYPE_ORDER = ["flatrate", "free", "rent", "buy"];
 
 const TYPE_META: Record<string, { emoji: string; label: string }> = {
   flatrate: { emoji: "📺", label: "Streaming" },
   free:     { emoji: "🆓", label: "Gratis" },
-  ads:      { emoji: "📢", label: "Con anuncios" },
   rent:     { emoji: "🎬", label: "Alquiler" },
   buy:      { emoji: "🛒", label: "Compra" },
 };
@@ -382,7 +381,7 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         page: "1",
         sort_by: "popularity.desc",
         watch_region: COUNTRY,
-        with_watch_monetization_types: "flatrate|free|ads",
+        with_watch_monetization_types: "flatrate|free",
         with_genres: "16",
         with_original_language: "ja",
       }, "series");
@@ -393,7 +392,7 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         page: "1",
         sort_by: "popularity.desc",
         watch_region: COUNTRY,
-        with_watch_monetization_types: "flatrate|free|ads",
+        with_watch_monetization_types: "flatrate|free",
         with_genres: "99|10764|10767",
         with_original_language: "es",
       }, "series");
@@ -404,7 +403,7 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         page: "1",
         sort_by: "popularity.desc",
         watch_region: COUNTRY,
-        with_watch_monetization_types: "flatrate|free|ads",
+        with_watch_monetization_types: "flatrate|free",
         with_original_language: "es",
       }, "movie");
 
@@ -414,7 +413,7 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         page: "1",
         sort_by: "popularity.desc",
         watch_region: COUNTRY,
-        with_watch_monetization_types: "flatrate|free|ads",
+        with_watch_monetization_types: "flatrate|free",
         with_genres: "16",
         with_original_language: "ja",
       }, "movie");
@@ -425,7 +424,7 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         page: "1",
         sort_by: "popularity.desc",
         watch_region: COUNTRY,
-        with_watch_monetization_types: "flatrate|free|ads",
+        with_watch_monetization_types: "flatrate|free",
         with_genres: "10402",
       }, "movie");
 

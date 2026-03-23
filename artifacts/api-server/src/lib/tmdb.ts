@@ -133,8 +133,8 @@ export function mapProviders(
   country: string = DEFAULT_COUNTRY,
 ): MappedProvider[] {
   const result: MappedProvider[] = [];
-  // Priority order: streaming subscription first, then free/ads, then transactional
-  const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'free', 'ads', 'rent', 'buy'];
+  // Priority order: subscription first, then free, then transactional — ads excluded entirely
+  const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'free', 'rent', 'buy'];
   // Deduplicate by provider_id — keep only the highest-priority monetization type
   const seenProviderIds = new Set<number>();
 
@@ -196,7 +196,7 @@ export async function getPopular(
     page: String(page),
     sort_by: 'popularity.desc',
     watch_region: country.toUpperCase(),
-    with_watch_monetization_types: 'flatrate|free|ads',
+    with_watch_monetization_types: 'flatrate|free',
   });
   return { results: data.results || [], totalPages: data.total_pages || 1 };
 }

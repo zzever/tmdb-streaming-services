@@ -332,7 +332,7 @@ router.get("/streaming/discover", async (req, res) => {
       page,
       sort_by: sortBy,
       watch_region: country.toUpperCase(),
-      with_watch_monetization_types: "flatrate|free|ads",
+      with_watch_monetization_types: "flatrate|free",
     };
     if (genreId) params.with_genres = genreId;
     if (withoutGenres) params.without_genres = withoutGenres;
@@ -430,7 +430,7 @@ router.get("/streaming/releases", async (req, res) => {
         page: "1",
         sort_by: type === "series" ? "first_air_date.desc" : "primary_release_date.desc",
         watch_region: country.toUpperCase(),
-        with_watch_monetization_types: "flatrate|subscription|free|ads",
+        with_watch_monetization_types: "flatrate|subscription|free",
       };
       if (type === "movie") {
         params["primary_release_date.gte"] = pastStr;
