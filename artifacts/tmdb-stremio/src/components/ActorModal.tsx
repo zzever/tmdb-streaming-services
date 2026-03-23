@@ -55,7 +55,7 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-display font-bold text-white/90 truncate">{actorName}</h2>
                 <a
-                  href={`https://www.filmaffinity.com/es/search.php?stext=${encodeURIComponent(actorName)}&stype%5B%5D=${data?.role === "director" ? "directors" : "actors"}`}
+                  href={`https://www.filmaffinity.com/es/advsearch.php?stext=${encodeURIComponent(actorName)}&stype%5B%5D=${data?.role === "director" ? "director" : "actor"}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
