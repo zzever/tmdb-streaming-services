@@ -4,6 +4,7 @@ export interface JWDirectOffer {
   providerName: string;
   monetizationType: string;
   directUrl: string;
+  presentationType?: string; // "HD", "4K" (UHD)
 }
 
 interface JWSearchEdge {
@@ -22,6 +23,7 @@ interface JWSearchEdge {
 interface JWRawOffer {
   monetizationType: string;
   standardWebURL: string;
+  presentationType: string;
   package: { clearName: string };
 }
 
@@ -86,8 +88,8 @@ async function fetchOffersForNode(
 ): Promise<JWDirectOffer[]> {
   const countryUpper = country.toUpperCase();
   const fragment = type === 'series'
-    ? '... on Show { offers(country: $country, platform: $platform) { monetizationType standardWebURL package { clearName } } }'
-    : '... on Movie { offers(country: $country, platform: $platform) { monetizationType standardWebURL package { clearName } } }';
+    ? '... on Show { offers(country: $country, platform: $platform) { monetizationType presentationType standardWebURL package { clearName } } }'
+    : '... on Movie { offers(country: $country, platform: $platform) { monetizationType presentationType standardWebURL package { clearName } } }';
 
   const query = `
     query GetOffers($nodeId: ID!, $country: Country!, $platform: Platform!) {
@@ -119,6 +121,7 @@ async function fetchOffersForNode(
       providerName: o.package.clearName,
       monetizationType: o.monetizationType.toLowerCase(),
       directUrl: o.standardWebURL,
+      presentationType: o.presentationType ?? undefined,
     }));
 }
 

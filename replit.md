@@ -62,15 +62,21 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 React + Vite frontend. Preview path: `/` (root).
 
 **Tabs:**
-- **Películas** — popular movies in selected country, genre filter chips + streaming service selector chips (9 platforms: Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll, Filmin, Movistar+, Mitele)
+- **Películas** — popular movies in selected country, genre filter chips + streaming service selector chips (11 platforms: Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll, Filmin, Movistar+, Rakuten TV, Pluto TV, Mitele)
 - **Series** — popular TV series in selected country, genre filter chips + streaming service selector
 - **Anime** — Japanese animation (genre 16 + originLanguage=ja), no genre chips; ProviderModal shows Kitsu metadata panel (title, poster, episodes, rating, status, link to Kitsu.io)
 - **Programas** — Spanish-language documentaries/reality/talk shows (genres 99|10764|10767 + originLanguage=es), no genre chips
-- **Música** — music movies/documentaries (genre 10402); YouTube Music player at top (song/artist/album search modes, embedded YouTube IFrame, link to YouTube Music)
+- **Música** — music movies/documentaries (genre 10402); YouTube Music player at top (song/artist/album search modes, embedded YouTube IFrame, link to YouTube Music); concert archive sources (Archive.org inline, Etree/shnflac/DiMeADozen/OPS external chips)
 - **Estrenos** — upcoming/recent releases; sub-tabs: Cinema (release type 2/3) vs Streaming (release type 4); ReleaseCard with backdrop hover crossfade animation
 - **TV en Directo** — 213 Spanish live TV channels from M3U playlist; group filter chips; HLS player via hls.js; fallback to VLC/copy URL on CORS error
-- **Favoritos** — watchlist/saved titles
+- **Favoritos** — watchlist/saved titles (persisted in localStorage)
+- **Vistos** — historial de vistos; eye button on each card; sortable by recent/title/rating/type; episode counter for series
 - **Mis Listas** — import a MDBList or Trakt list by URL
+
+**View features:**
+- **Compact mode toggle** — switch grid view to horizontal list mode (icon button in browse toolbar)
+- **Platform color tinting** — when a streaming service is selected, a subtle tinted radial gradient appears in the background
+- **Trailer autoplay muted** — when ProviderModal opens and trailer is available, it plays muted as a blurred hero background; click poster area to open full trailer
 
 **Key files:**
 - `src/pages/Home.tsx` — main page, `ContentType` union (`"movie"|"series"|"anime"|"programa"`), tab navigation, discover/popular hooks wiring
@@ -112,15 +118,26 @@ Express 5 API server. Entry: `src/index.ts`. App: `src/app.ts`. Routes at `/api`
 - `src/lib/tmdb.ts` — TMDB API wrapper: `tmdbFetch`, `getPopular`, `searchTmdb`, `getWatchProviders`, `mapProviders`, `getTitleRichDetails`, `findTmdbId`, `getImdbId`, `mapGenres`, `posterUrl`, `backdropUrl`
 - `src/lib/justwatch.ts` — JustWatch GraphQL client: `getJWDirectOffers` returning direct platform URLs
 
-## Stremio Addon (v2.4.0)
+## Stremio Addon (v2.11.0)
 
 Manifest ID: `community.tmdb-streaming-es`
 
 **Catalogs:**
 - `popular-es/movie` — 🇪🇸 Películas Populares en España
 - `popular-es/series` — 🇪🇸 Series Populares en España
+- `peliculas-es/movie` — 🎬 Películas en Español
 - `anime-es/series` — 🗾 Anime en España (genre 16 + originLanguage=ja)
+- `anime-movies-es/movie` — 🗾 Anime Películas
+- `crunchyroll-anime-series/series` — 🦊 Anime Crunchyroll · Series (provider 283)
+- `crunchyroll-anime-movies/movie` — 🦊 Anime Crunchyroll · Películas
 - `programas-es/series` — 📺 Programas y Docs en España (genres 99|10764|10767 + originLanguage=es)
+- `musica-es/movie` — 🎵 Música y Conciertos (genre 10402)
+- `live-es/tv` — 📡 TV en Directo España (213 HLS channels)
+- `estrenos-streaming-es/movie` — 🆕 Nuevos en Streaming España (last 60 days by release date)
+- `estrenos-streaming-es/series` — 🆕 Nuevas Series en Streaming España
+- `actor-es/movie` — 🎭 Por Actor (search-based; ?search=nombre)
+
+**JustWatch integration:** presentationType (HD/4K) returned per offer; providers include watchUrl direct links.
 
 **Resources:** stream, meta, catalog. All use IMDB IDs (`tt` prefix).
 

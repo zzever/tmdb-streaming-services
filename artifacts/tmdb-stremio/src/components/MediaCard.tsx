@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getTmdbImage } from "@/lib/utils";
-import { MonitorPlay, Star, Heart } from "lucide-react";
+import { MonitorPlay, Star, Heart, Eye } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useWatchlist } from "@/context/WatchlistContext";
+import { useWatched } from "@/context/WatchedContext";
 
 interface DisplayProvider {
   providerId: number;
@@ -20,12 +21,15 @@ interface MediaCardProps {
   media: PopularTitle | SearchResult | any;
   onClick: (media: any) => void;
   onGenreClick?: (genre: string) => void;
+  compact?: boolean;
 }
 
-export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
+export function MediaCard({ media, onClick, onGenreClick, compact = false }: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { toggle, isInWatchlist } = useWatchlist();
+  const { toggle: toggleWatched, isWatched } = useWatched();
   const inList = media.id ? isInWatchlist(media.id) : false;
+  const inWatched = media.id ? isWatched(media.id) : false;
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
 
@@ -43,6 +47,127 @@ export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
 
   const showBackdrop = isHovered && !!backdropSrc;
 
+  const handleToggleWatched = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWatched({
+      id: media.id,
+      type: media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie"),
+      title: media.title ?? media.name ?? "",
+      poster: media.poster ?? null,
+      backdrop: media.backdrop ?? null,
+      rating: media.rating ?? null,
+      year: media.year ?? null,
+      genres: media.genres ?? null,
+      overview: media.overview ?? null,
+    });
+  };
+
+  const handleToggleWatchlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggle({
+      id: media.id,
+      type: media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie"),
+      title: media.title ?? media.name ?? "",
+      poster: media.poster ?? null,
+      backdrop: media.backdrop ?? null,
+      rating: media.rating ?? null,
+      year: media.year ?? null,
+      genres: media.genres ?? null,
+      overview: media.overview ?? null,
+    });
+  };
+
+  // ── Compact (list) mode ──────────────────────────────────────
+  if (compact) {
+    return (
+      <motion.div
+        whileHover={{ x: 3 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        onClick={() => onClick(media)}
+        className="group relative flex items-center gap-3 cursor-pointer rounded-xl px-3 py-2.5"
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        {/* Tiny poster */}
+        <div className="shrink-0 w-10 h-14 rounded-lg overflow-hidden bg-white/5 relative">
+          {posterSrc ? (
+            <img src={posterSrc} alt={media.title} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <MonitorPlay className="w-4 h-4 text-white/20" />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="font-semibold text-white/90 text-sm truncate">{media.title}</span>
+            {media.year && <span className="text-[11px] text-white/30 shrink-0">{media.year}</span>}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {media.rating && media.rating > 0 && (
+              <span className="flex items-center gap-1 text-[11px] text-yellow-400">
+                <Star className="w-3 h-3 fill-yellow-400" />{media.rating.toFixed(1)}
+              </span>
+            )}
+            {(media.genres ?? []).slice(0, 2).map((g: string) => (
+              onGenreClick ? (
+                <button key={g}
+                  onClick={(e) => { e.stopPropagation(); onGenreClick(g); }}
+                  className="text-[10px] px-1.5 py-0.5 rounded-md text-white/35 hover:text-white/70 transition-colors"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
+                >{g}</button>
+              ) : (
+                <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-md text-white/35"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
+                >{g}</span>
+              )
+            ))}
+          </div>
+          {media.overview && (
+            <p className="text-[11px] text-white/30 line-clamp-1 mt-0.5 leading-relaxed">{media.overview}</p>
+          )}
+        </div>
+
+        {/* Providers */}
+        {displayProviders.length > 0 && (
+          <div className="flex gap-1 shrink-0">
+            {displayProviders.map((p, i) =>
+              p.logo ? (
+                <img key={i} src={p.logo} alt={p.name} title={p.name}
+                  className="w-6 h-6 rounded-md border border-white/15 object-cover bg-black" />
+              ) : (
+                <div key={i} className="w-6 h-6 rounded-md border border-white/15 flex items-center justify-center"
+                  style={{ background: p.color ?? "rgba(0,0,0,0.6)" }} title={p.name}>
+                  <span className="text-[8px] font-black text-white">{p.short ?? p.name.slice(0, 2)}</span>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        {media.id && (
+          <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={handleToggleWatched} title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
+              className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
+                inWatched ? "bg-emerald-500/70 border-emerald-400/40" : "bg-black/40 border-white/10 hover:bg-emerald-500/20"
+              }`}>
+              <Eye className={`w-3 h-3 ${inWatched ? "text-white" : "text-white/60"}`} />
+            </button>
+            <button onClick={handleToggleWatchlist} title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
+              className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
+                inList ? "bg-red-500/70 border-red-400/40" : "bg-black/40 border-white/10 hover:bg-red-500/20"
+              }`}>
+              <Heart className={`w-3 h-3 ${inList ? "fill-white text-white" : "text-white/60"}`} />
+            </button>
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // ── Grid mode (default) ──────────────────────────────────────
   return (
     <motion.div
       whileHover={{ y: -5, scale: 1.02 }}
@@ -134,20 +259,7 @@ export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
         {/* Watchlist heart button */}
         {media.id && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggle({
-                id: media.id,
-                type: media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie"),
-                title: media.title ?? media.name ?? "",
-                poster: media.poster ?? null,
-                backdrop: media.backdrop ?? null,
-                rating: media.rating ?? null,
-                year: media.year ?? null,
-                genres: media.genres ?? null,
-                overview: media.overview ?? null,
-              });
-            }}
+            onClick={handleToggleWatchlist}
             className={`absolute bottom-2 right-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
               inList
                 ? "opacity-100 bg-red-500/80 border-red-400/50"
@@ -156,6 +268,21 @@ export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
             title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
           >
             <Heart className={`w-3.5 h-3.5 ${inList ? "fill-white text-white" : "text-white/70"}`} />
+          </button>
+        )}
+
+        {/* Visto (eye) button */}
+        {media.id && (
+          <button
+            onClick={handleToggleWatched}
+            className={`absolute bottom-2 left-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+              inWatched
+                ? "opacity-100 bg-emerald-500/80 border-emerald-400/50"
+                : "opacity-0 group-hover:opacity-100 bg-black/60 border-white/10"
+            } border backdrop-blur-sm hover:scale-110`}
+            title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
+          >
+            <Eye className={`w-3.5 h-3.5 ${inWatched ? "text-white" : "text-white/70"}`} />
           </button>
         )}
 

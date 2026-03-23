@@ -181,12 +181,22 @@ export function ProviderModal({
       )}
 
       <div className="relative">
-        {/* Hero backdrop */}
+        {/* Hero backdrop — trailer video (muted autoplay) or still image */}
         <div className="absolute inset-0 h-80 w-full overflow-hidden pointer-events-none">
-          {heroImg && (
+          {details?.trailerKey && !trailerOpen ? (
+            <>
+              <iframe
+                src={`https://www.youtube.com/embed/${details.trailerKey}?autoplay=1&mute=1&loop=1&controls=0&modestbranding=1&playsinline=1&playlist=${details.trailerKey}&start=5`}
+                allow="autoplay"
+                className="absolute inset-0 w-full h-full scale-150 opacity-25"
+                style={{ border: "none", pointerEvents: "none" }}
+                title="trailer-bg"
+              />
+            </>
+          ) : heroImg ? (
             <img src={heroImg} alt="" className="w-full h-full object-cover opacity-35"
               style={{ objectPosition: "center 20%" }} />
-          )}
+          ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d16] via-[#0c0d16]/75 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0c0d16]/50 via-transparent to-[#0c0d16]/50" />
         </div>

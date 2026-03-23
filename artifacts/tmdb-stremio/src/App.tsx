@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LocaleProvider } from "@/context/LocaleContext";
 import { ListsProvider } from "@/context/ListsContext";
 import { WatchlistProvider } from "@/context/WatchlistContext";
+import { WatchedProvider } from "@/context/WatchedContext";
 import Home from "@/pages/Home";
 import OpenSource from "@/pages/OpenSource";
 import SelfHost from "@/pages/SelfHost";
@@ -36,6 +37,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <LocaleProvider>
         <WatchlistProvider>
+          <WatchedProvider>
           <ListsProvider>
             <TooltipProvider>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
@@ -44,6 +46,7 @@ function App() {
               <Toaster />
             </TooltipProvider>
           </ListsProvider>
+          </WatchedProvider>
         </WatchlistProvider>
       </LocaleProvider>
     </QueryClientProvider>

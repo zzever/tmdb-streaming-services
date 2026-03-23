@@ -42,10 +42,10 @@ export function Dialog({ isOpen, onClose, children, className }: DialogProps) {
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.87, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            exit={{ opacity: 0, scale: 0.9, y: 24 }}
+            transition={{ type: "spring", damping: 22, stiffness: 320, mass: 0.85 }}
             className={cn(
               "relative w-full max-w-4xl max-h-[90vh] rounded-2xl bg-card border border-border shadow-2xl shadow-black flex flex-col",
               className

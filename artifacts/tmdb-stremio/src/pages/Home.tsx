@@ -11,6 +11,7 @@ import {
   type DiscoverTitle,
 } from "@/hooks/use-media-api";
 import { useWatchlist, type WatchlistItem } from "@/context/WatchlistContext";
+import { useWatched, type WatchedItem } from "@/context/WatchedContext";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
@@ -24,6 +25,7 @@ import {
   Copy, Check, Plug, Shuffle, BookMarked, Plus,
   Film, Tv2, Clapperboard, CalendarDays, Star, MonitorPlay,
   Zap, Tag, X, Dices, Radio, Heart, ChevronDown, SortAsc, Music2,
+  Eye, LayoutList, LayoutGrid,
 } from "lucide-react";
 import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -456,7 +458,7 @@ function StreamingServiceChips({ selected, onSelect }: ServiceChipsProps) {
 }
 
 // ── Main types ──────────────────────────────────────────────────
-type ViewMode = "browse" | "lists" | "releases" | "live" | "watchlist";
+type ViewMode = "browse" | "lists" | "releases" | "live" | "watchlist" | "watched";
 type AnyMedia = PopularTitle | SearchResult | ReleaseTitle | DiscoverTitle;
 
 const TABS = [
@@ -468,6 +470,7 @@ const TABS = [
   { id: "releases",        label: "Estrenos",     icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, contentType: null },
   { id: "live",            label: "TV en Directo", icon: <Radio className="w-3.5 h-3.5" />,       mode: "live" as ViewMode, contentType: null },
   { id: "watchlist",       label: "Favoritos",    icon: <Heart className="w-3.5 h-3.5" />,        mode: "watchlist" as ViewMode, contentType: null },
+  { id: "watched",         label: "Vistos",       icon: <Eye className="w-3.5 h-3.5" />,          mode: "watched" as ViewMode, contentType: null },
   { id: "lists",           label: "Mis Listas",   icon: <BookMarked className="w-3.5 h-3.5" />,   mode: "lists" as ViewMode, contentType: null },
 ];
 
@@ -626,6 +629,130 @@ function WatchlistView({
   );
 }
 
+// ── Historial de Vistos ──────────────────────────────────────────
+function WatchedView({
+  watched,
+  onSelect,
+  onRemove,
+  onClear,
+}: {
+  watched: WatchedItem[];
+  onSelect: (m: any) => void;
+  onRemove: (id: number) => void;
+  onClear: () => void;
+}) {
+  const [sortBy, setSortBy] = useState<WatchlistSort>("recent");
+  const [filterType, setFilterType] = useState<"all" | "movie" | "series" | "anime">("all");
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const filtered = watched.filter((w) => filterType === "all" || w.type === filterType);
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "title") return (a.title ?? "").localeCompare(b.title ?? "");
+    if (sortBy === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
+    if (sortBy === "type") return (a.type ?? "").localeCompare(b.type ?? "");
+    return (b.watchedAt ?? 0) - (a.watchedAt ?? 0);
+  });
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Eye className="w-4 h-4 text-white/30" />
+        {(["all", "movie", "series", "anime"] as const).map((t) => (
+          <button key={t}
+            onClick={() => setFilterType(t)}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              filterType === t ? "bg-white/12 text-white border border-white/20" : "text-white/35 border border-white/07 hover:text-white/60 bg-white/[0.03]"
+            }`}
+          >
+            {{ all: "Todos", movie: "Películas", series: "Series", anime: "Anime" }[t]}
+          </button>
+        ))}
+        {(["recent", "title", "rating", "type"] as const).map((s) => (
+          <button key={s}
+            onClick={() => setSortBy(s)}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-200 ml-1 ${
+              sortBy === s ? "bg-white/12 text-white border border-white/20" : "text-white/25 border border-white/05 hover:text-white/50 bg-white/[0.02]"
+            }`}
+          >
+            {WATCHLIST_SORT_LABELS[s]}
+          </button>
+        ))}
+        <span className="text-xs text-white/20 ml-1">{sorted.length} título{sorted.length !== 1 ? "s" : ""}</span>
+        <div className="ml-auto flex items-center gap-2">
+          {confirmClear ? (
+            <>
+              <span className="text-xs text-red-400/80">¿Borrar historial?</span>
+              <button
+                onClick={() => { onClear(); setConfirmClear(false); }}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-400 transition-colors hover:text-red-300"
+                style={{ background: "rgba(255,60,60,0.10)", border: "1px solid rgba(255,60,60,0.20)" }}
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white/40 hover:text-white/70 transition-colors"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/30 hover:text-red-400/80 transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <X className="w-3 h-3" />
+              Borrar historial
+            </button>
+          )}
+        </div>
+      </div>
+      {sorted.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Eye className="w-10 h-10 text-white/10 mb-4" />
+          <p className="text-white/30 text-sm">Aún no has marcado nada como visto.</p>
+          <p className="text-white/15 text-xs mt-1">Haz clic en el ojo al pasar por encima de una tarjeta.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          {sorted.map((item, i) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.025, duration: 0.32, ease: "easeOut" }}
+              className="relative group"
+            >
+              <MediaCard
+                media={{ ...item, tmdbId: item.id, mediaType: item.type }}
+                onClick={onSelect}
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+                title="Marcar como no visto"
+                className="absolute top-2 left-2 w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.15)" }}
+              >
+                <X className="w-3 h-3 text-white/80" />
+              </button>
+              {(item.episodesWatched ?? 0) > 0 && (
+                <div
+                  className="absolute bottom-12 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold text-white/80 z-10"
+                  style={{ background: "rgba(16,185,129,0.30)", border: "1px solid rgba(16,185,129,0.35)" }}
+                >
+                  {item.episodesWatched} ep.
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Home ────────────────────────────────────────────────────────
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -642,9 +769,11 @@ export default function Home() {
   const [animeProvider, setAnimeProvider] = useState<number | null>(null);
   const [programaProvider, setProgramaProvider] = useState<number | null>(null);
   const debouncedQuery = useDebounce(searchQuery, 500);
+  const [compactMode, setCompactMode] = useState<"grid" | "list">("grid");
   const { locale } = useLocale();
   const { lists } = useLists();
   const { watchlist, remove: removeFromWatchlist, clear: clearWatchlist } = useWatchlist();
+  const { watched, toggle: toggleWatched, remove: removeFromWatched, clear: clearWatched } = useWatched();
 
   const [selectedMedia, setSelectedMedia] = useState<AnyMedia | null>(null);
 
@@ -772,8 +901,20 @@ export default function Home() {
     return genres.find((g) => g.id === selectedGenreId)?.name ?? null;
   })();
 
+  const platformTintColor = useMemo(() => {
+    if (selectedProvider === null) return null;
+    return STREAMING_SERVICES.find((s) => s.id === selectedProvider)?.color ?? null;
+  }, [selectedProvider]);
+
   return (
     <div className="min-h-screen relative" style={{ background: "#080912" }}>
+      {/* Platform tint overlay */}
+      {platformTintColor && (
+        <div
+          className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-700"
+          style={{ background: `radial-gradient(ellipse at 60% 0%, ${platformTintColor}12 0%, transparent 60%)` }}
+        />
+      )}
       <div className="orb orb-1" />
       <div className="orb orb-2" />
       <div className="orb orb-3" />
@@ -792,6 +933,7 @@ export default function Home() {
                 : tab.mode === "releases" ? viewMode === "releases"
                 : tab.mode === "live"     ? viewMode === "live"
                 : tab.mode === "watchlist"? viewMode === "watchlist"
+                : tab.mode === "watched"  ? viewMode === "watched"
                 : viewMode === "browse" && activeContentType === tab.contentType;
               return (
                 <button key={tab.id}
@@ -800,6 +942,7 @@ export default function Home() {
                     else if (tab.mode === "releases")  { setViewMode("releases"); }
                     else if (tab.mode === "live")      { setViewMode("live"); }
                     else if (tab.mode === "watchlist") { setViewMode("watchlist"); }
+                    else if (tab.mode === "watched")   { setViewMode("watched"); }
                     else { setViewMode("browse"); handleTypeChange(tab.contentType!); }
                   }}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
@@ -813,6 +956,9 @@ export default function Home() {
                   )}
                   {tab.mode === "watchlist" && watchlist.length > 0 && (
                     <span className="ml-0.5 text-[10px] text-red-400/70 tabular-nums">({watchlist.length})</span>
+                  )}
+                  {tab.mode === "watched" && watched.length > 0 && (
+                    <span className="ml-0.5 text-[10px] text-emerald-400/70 tabular-nums">({watched.length})</span>
                   )}
                 </button>
               );
@@ -833,6 +979,15 @@ export default function Home() {
                 {displayedData && displayedData.length > 0 && (
                   <span className="text-xs text-white/20 tabular-nums">{displayedData.length} títulos</span>
                 )}
+                {/* Compact mode toggle */}
+                <button
+                  onClick={() => setCompactMode((m) => m === "grid" ? "list" : "grid")}
+                  title={compactMode === "grid" ? "Modo lista" : "Modo cuadrícula"}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs text-white/40 hover:text-white transition-all duration-200"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+                >
+                  {compactMode === "grid" ? <LayoutList className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+                </button>
 
                 {/* Sort dropdown */}
                 {!isSearching && (
@@ -1095,6 +1250,16 @@ export default function Home() {
           />
         )}
 
+        {/* ── Historial de Vistos view ── */}
+        {viewMode === "watched" && (
+          <WatchedView
+            watched={watched}
+            onSelect={setSelectedMedia}
+            onRemove={removeFromWatched}
+            onClear={clearWatched}
+          />
+        )}
+
         {/* ── YouTube Music Player (Música tab only) ── */}
         <AnimatePresence>
           {viewMode === "browse" && isMusica && (
@@ -1125,7 +1290,10 @@ export default function Home() {
             ) : displayedData && displayedData.length > 0 ? (
               <motion.div key={`${activeContentType}-${selectedGenreId}-${debouncedQuery}`}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                <div className={compactMode === "list"
+                  ? "flex flex-col gap-2"
+                  : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
+                }>
                   {displayedData.map((item, i) => {
                     // Inject provider badge for discover results (no providers field)
                     const activeProviderSvc =
@@ -1142,7 +1310,7 @@ export default function Home() {
                     return (
                       <motion.div key={`${item.tmdbId ?? item.id}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: Math.min(i, 11) * 0.03, duration: 0.35, ease: "easeOut" }}>
-                        <MediaCard media={enrichedItem} onClick={setSelectedMedia} onGenreClick={(g) => {
+                        <MediaCard media={enrichedItem} onClick={setSelectedMedia} compact={compactMode === "list"} onGenreClick={(g) => {
                           const genres = tmdbType === "movie" ? MOVIE_GENRES : SERIES_GENRES;
                           const found = genres.find((x) => x.name.toLowerCase() === g.toLowerCase());
                           if (found && !isSpecialBrowse) { setSelectedGenreId(found.id); setViewMode("browse"); }

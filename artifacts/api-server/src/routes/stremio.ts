@@ -30,7 +30,7 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.10.0",
+  version: "2.11.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming en España. URLs directas vía JustWatch — Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll (anime), Rakuten TV, Pluto TV, Filmin, Movistar+ (programas), Mitele. Anime Kitsu. Conciertos: YouTube Music + Archive.org.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
@@ -54,6 +54,9 @@ const manifest = {
     { type: "movie",  id: "anime-movies-es", name: "🗾 Anime Películas" },
     { type: "series", id: "programas-es", name: "📺 Programas y Docs en España" },
     { type: "tv",     id: "live-es",      name: "📡 TV en Directo España" },
+    { type: "movie",  id: "estrenos-streaming-es", name: "🆕 Nuevos en Streaming España" },
+    { type: "series", id: "estrenos-streaming-es", name: "🆕 Nuevas Series en Streaming España" },
+    { type: "movie",  id: "actor-es", name: "🎭 Por Actor (buscar)", extra: [{ name: "search", isRequired: true }] },
   ],
   behaviorHints: {
     adult: false,
@@ -453,6 +456,49 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
         with_watch_monetization_types: "flatrate|free",
         with_genres: "10402",
       }, "movie");
+
+    } else if (catalogId === "estrenos-streaming-es") {
+      // Recently added / new on streaming in Spain — movies or series
+      const tmdbPath = mediaType === "series" ? "/discover/tv" : "/discover/movie";
+      const today = new Date().toISOString().slice(0, 10);
+      const past60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const dateKey = mediaType === "series" ? "first_air_date" : "primary_release_date";
+      metas = await discoverMetas(tmdbPath, {
+        page: "1",
+        sort_by: `${dateKey}.desc`,
+        watch_region: COUNTRY,
+        with_watch_monetization_types: "flatrate|free",
+        [`${dateKey}.gte`]: past60,
+        [`${dateKey}.lte`]: today,
+      }, mediaType);
+
+    } else if (catalogId === "actor-es") {
+      // Search movies/series by actor name using TMDB person search
+      const searchQuery = String((req.query as Record<string, string>).search ?? "").trim();
+      if (!searchQuery) {
+        res.json({ metas: [] });
+        return;
+      }
+      const personRes = await tmdbFetch<{ results?: any[] }>("/search/person", { query: searchQuery, page: "1" });
+      const person = personRes.results?.[0];
+      if (!person) { res.json({ metas: [] }); return; }
+      const creditsRes = await tmdbFetch<{ cast?: any[] }>(`/person/${person.id}/movie_credits`, {});
+      const credits = (creditsRes.cast ?? [])
+        .filter((m) => m.popularity > 5)
+        .sort((a, b) => b.popularity - a.popularity)
+        .slice(0, 20);
+      const imdbIds = await Promise.all(credits.map((r: any) => getImdbId(r.id, "movie").catch(() => null)));
+      metas = credits
+        .map((r: any, i: number) => ({
+          id: imdbIds[i] ?? `tmdb:${r.id}`,
+          type: "movie",
+          name: r.title || r.name || "",
+          poster: posterUrl(r.poster_path ?? null),
+          year: r.release_date ? parseInt(r.release_date.slice(0, 4)) : undefined,
+          description: r.overview || undefined,
+          imdbRating: r.vote_average ? String(r.vote_average.toFixed(1)) : undefined,
+        }))
+        .filter((m: any) => m.id.startsWith("tt"));
 
     } else {
       res.json({ metas: [] });
