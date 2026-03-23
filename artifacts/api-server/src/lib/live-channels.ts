@@ -19,9 +19,33 @@ const AMBIT_TO_GROUP: Record<string, string> = {
   "R. de Murcia": "Regional",
 };
 
-function fixStreamtheworldUrl(url: string): string {
-  const m = url.match(/playerservices\.streamtheworld\.com\/api\/livestream-redirect\/(.+)$/i);
-  if (m) return `https://25683.live.streamtheworld.com/${m[1]}`;
+/** Returns null for non-streamable embed URLs, or the (possibly fixed) URL */
+function sanitizeChannelUrl(url: string): string | null {
+  if (!url) return null;
+
+  // Reject browser-embed pages — can't be played as a stream
+  if (
+    url.includes("twitch.tv") ||
+    url.includes("kick.com") ||
+    url.includes("dailymotion.com") ||
+    url.includes("youtube.com/embed") ||
+    url.includes("[CACHEBUSTER]")
+  ) return null;
+
+  // Reject hosts confirmed to be down or requiring proprietary auth (403/404)
+  const deadHosts = [
+    "liveingesta318.cdnmedia.tv",   // 403 on all streams
+    "streamer.zapitv.com",          // 403 on all streams
+    "fast.rakuten.tv",              // 404 – content removed
+    "d2epgk1fomaa1g.cloudfront.net", // 403 – auth required
+    "dgrfwaj8stp69.cloudfront.net",  // 403 – auth required
+    "cartv-streaming.aranova.es",   // 403 – Aragón content restricted
+  ];
+  if (deadHosts.some(h => url.includes(h))) return null;
+
+  // Fix 3catdirectes.cat: -cat subdomain is restricted, -int works publicly
+  url = url.replace(/directes-tv-cat\.3catdirectes\.cat/g, "directes-tv-int.3catdirectes.cat");
+
   return url;
 }
 
@@ -71,10 +95,13 @@ function parseBouquetChannels(filename: string, defaultGroup: string): LiveChann
       const rest = svcStr.slice(pos);
       const lastColon = rest.lastIndexOf(":");
       const rawUrl = lastColon > 0 ? rest.slice(0, lastColon) : rest;
-      if (rawUrl.includes("127.0.0.1") || rawUrl.includes("localhost") || rawUrl.includes("twitch.tv")) {
+      if (rawUrl.includes("127.0.0.1") || rawUrl.includes("localhost")) {
         pendingUrl = null; continue;
       }
-      pendingUrl = rawUrl.replace(/%3a/gi, ":").replace(/%3b/gi, ";").replace(/%3d/gi, "=").replace(/%26/gi, "&").replace(/%40/gi, "@");
+      const decodedUrl = rawUrl.replace(/%3a/gi, ":").replace(/%3b/gi, ";").replace(/%3d/gi, "=").replace(/%26/gi, "&").replace(/%40/gi, "@");
+      const cleanUrl = sanitizeChannelUrl(decodedUrl);
+      if (!cleanUrl) { pendingUrl = null; continue; }
+      pendingUrl = cleanUrl;
     } else if (line.startsWith("#DESCRIPTION ") && pendingUrl) {
       const name = line.slice("#DESCRIPTION ".length).trim();
       if (name && !name.startsWith("++") && !name.startsWith("●") && !name.startsWith("———") && !name.startsWith("---") && name.length < 80) {
@@ -110,7 +137,8 @@ export async function getLiveChannels(): Promise<LiveChannel[]> {
         const group = AMBIT_TO_GROUP[ambit.name] ?? "Regional";
         for (const ch of (ambit.channels ?? [])) {
           const m3u8Opt = (ch.options ?? []).find((o: any) => o.format === "m3u8");
-          const url = m3u8Opt?.url ?? ch.options?.[0]?.url;
+          const rawUrl = m3u8Opt?.url ?? ch.options?.[0]?.url;
+          const url = sanitizeChannelUrl(rawUrl ?? "");
           if (!url) continue;
           channels.push({ id: ch.epg_id ?? ch.name.replace(/\s+/g, ""), name: ch.name, logo: ch.logo ?? "", groups: [group], url });
         }
@@ -129,9 +157,10 @@ export async function getLiveChannels(): Promise<LiveChannel[]> {
         const logoM = line.match(/tvg-logo="([^"]*)"/);
         const idM   = line.match(/tvg-id="([^"]*)"/);
         const nameM = line.match(/,(.+)$/);
-        let url = lines[i + 1]?.trim();
-        if (!url || !nameM || url.startsWith("#")) continue;
-        url = fixStreamtheworldUrl(url);
+        const rawUrl = lines[i + 1]?.trim();
+        if (!rawUrl || !nameM || rawUrl.startsWith("#")) continue;
+        const url = sanitizeChannelUrl(rawUrl);
+        if (!url) continue;
         channels.push({ id: idM?.[1] ?? nameM[1].trim().replace(/\s+/g, ""), name: nameM[1].trim(), logo: logoM?.[1] ?? "", groups: ["Radio"], url });
       }
     }
