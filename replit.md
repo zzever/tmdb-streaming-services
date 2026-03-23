@@ -2,7 +2,7 @@
 
 ## Project Goal
 
-Monorepo app showing streaming availability for movies/TV series in Spain. Works as a React/Vite web app (glassmorphism dark UI) and a Stremio addon. Shows providers with JustWatch direct URLs, country-aware popular lists, genres, backdrop fanart, cast with photos, similar titles, trailers.
+Monorepo app showing streaming availability for movies/TV series in Spain (and other countries). Works as a React/Vite web app (glassmorphism dark UI) and a Stremio addon. Shows providers with JustWatch direct URLs, country-aware popular lists, genres, backdrop fanart, cast with photos, similar titles, trailers, actor/director filmographies, and cinema vs streaming releases.
 
 ## Overview
 
@@ -19,33 +19,36 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Frontend**: React 19 + Vite + TailwindCSS + shadcn/ui + Framer Motion
+- **Data fetching**: TanStack Query v5
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server (port 8080 in dev)
+│   └── tmdb-stremio/       # React/Vite frontend (preview path: /)
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+├── scripts/                # Utility scripts
+├── addon.config.example.env # Stremio addon self-hosting config reference
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
 ## TypeScript & Composite Projects
 
 Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`).
+- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite.
+- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array.
 
 ## Root Scripts
 
@@ -56,59 +59,92 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ### `artifacts/tmdb-stremio` (`@workspace/tmdb-stremio`)
 
-React + Vite frontend for the TMDB Streaming Services app. Displays popular movies and TV series with their streaming providers for any supported country using the TMDB API.
+React + Vite frontend. Preview path: `/` (root).
 
-- Preview path: `/` (root)
-- Key pages: `src/pages/Home.tsx`
-- Components: `MediaCard`, `ProviderModal`, `Header`, `LocaleSelector`
-- Locale context: `src/context/LocaleContext.tsx` — persists selected country in `localStorage`
-- Country list + helpers: `src/lib/locales.ts`
-- Provider links redirect directly to JustWatch (not through TMDB)
-- Country selector is passed as `country` query param to all API calls
+**Tabs:**
+- **Películas** — popular movies in selected country, genre filter chips
+- **Series** — popular TV series in selected country, genre filter chips
+- **Anime** — Japanese animation (genre 16 + originLanguage=ja), no genre chips
+- **Programas** — Spanish-language documentaries/reality/talk shows (genres 99|10764|10767 + originLanguage=es), no genre chips
+- **Estrenos** — upcoming/recent releases; sub-tabs: Cinema (release type 2/3) vs Streaming (release type 4); ReleaseCard with backdrop hover crossfade animation
+- **Mis Listas** — import a MDBList or Trakt list by URL
 
-## Packages
+**Key files:**
+- `src/pages/Home.tsx` — main page, `ContentType` union (`"movie"|"series"|"anime"|"programa"`), tab navigation, discover/popular hooks wiring
+- `src/hooks/use-media-api.ts` — custom hooks: `useGetReleases`, `useDiscover`, `useGetPersonFilmography`, `fetchRandomTitle`; type exports: `ReleaseTitle`, `DiscoverTitle`, `PersonData`, `PersonCredit`, `MOVIE_GENRES`, `SERIES_GENRES`
+- `src/components/MediaCard.tsx` — card with backdrop crossfade hover animation, rating badge, provider logos
+- `src/components/ProviderModal.tsx` — detail modal; shows cast, directors/creators (clickable → opens ActorModal), similar titles, trailers, JustWatch provider links
+- `src/components/ActorModal.tsx` — person filmography modal; shows Actor/Director badge (`role` field), photo, credit grid
+- `src/components/Header.tsx` — search bar, tab navigation, country/locale selector, Aleatorio button
+- `src/components/ReleasesView.tsx` — Estrenos tab with Cinema/Streaming sub-tabs and `ReleaseCard`
+- `src/context/LocaleContext.tsx` — country selector state persisted in localStorage
+- `src/lib/locales.ts` — country list + helpers
+
+**Constants:**
+- `ANIME_GENRE_ID = "16"`, `ANIME_LANG = "ja"`
+- `PROGRAMA_GENRE_IDS = "99|10764|10767"`
+- `tmdbType` — maps `ContentType` to TMDB `"movie"|"series"`
+- Genre chips hidden when `isSpecialBrowse` (anime or programa tabs)
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+Express 5 API server. Entry: `src/index.ts`. App: `src/app.ts`. Routes at `/api`.
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+**Routes:**
+- `GET /api/streaming/providers?imdbId&type&country` — watch providers + JustWatch direct URLs
+- `GET /api/streaming/search?query&type` — TMDB multi/movie/tv search
+- `GET /api/streaming/popular?type&country&page` — popular titles for country
+- `GET /api/streaming/discover?type&country&genreId&year&originLanguage&sortBy&withoutGenres&page` — TMDB discover with filters
+- `GET /api/streaming/releases?type&country&mode&releaseType` — upcoming/recent releases; `releaseType`: `theater|streaming|any`
+- `GET /api/streaming/random?type&country` — random popular title
+- `GET /api/streaming/person?name` — person filmography + role detection (actor vs director)
+- `GET /api/streaming/details?tmdbId&type&country` — rich title details (cast, crew, similar, trailers, providers)
+- `GET /api/stremio/manifest.json` — Stremio manifest v2.4.0
+- `GET /api/stremio/catalog/:type/:id.json` — Stremio catalog
+- `GET /api/stremio/stream/:type/:id.json` — Stremio stream (provider links)
+- `GET /api/stremio/meta/:type/:id.json` — Stremio meta
+
+**Key lib files:**
+- `src/lib/tmdb.ts` — TMDB API wrapper: `tmdbFetch`, `getPopular`, `searchTmdb`, `getWatchProviders`, `mapProviders`, `getTitleRichDetails`, `findTmdbId`, `getImdbId`, `mapGenres`, `posterUrl`, `backdropUrl`
+- `src/lib/justwatch.ts` — JustWatch GraphQL client: `getJWDirectOffers` returning direct platform URLs
+
+## Stremio Addon (v2.4.0)
+
+Manifest ID: `community.tmdb-streaming-es`
+
+**Catalogs:**
+- `popular-es/movie` — 🇪🇸 Películas Populares en España
+- `popular-es/series` — 🇪🇸 Series Populares en España
+- `anime-es/series` — 🗾 Anime en España (genre 16 + originLanguage=ja)
+- `programas-es/series` — 📺 Programas y Docs en España (genres 99|10764|10767 + originLanguage=es)
+
+**Resources:** stream, meta, catalog. All use IMDB IDs (`tt` prefix).
+
+Install URL: `https://<domain>/api/stremio/manifest.json`
+
+Self-hosting config reference: `addon.config.example.env`
+
+## Packages
 
 ### `lib/db` (`@workspace/db`)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+PostgreSQL + Drizzle ORM. Exports pool, db, schema.
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
+- `drizzle.config.ts` — requires `DATABASE_URL` (auto-provided by Replit)
+- Dev: `pnpm --filter @workspace/db run push`
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+### `lib/api-spec` → `lib/api-client-react` + `lib/api-zod`
 
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
+OpenAPI 3.1 spec → Orval codegen → React Query hooks + Zod schemas.
 
 Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
 ### `scripts` (`@workspace/scripts`)
 
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Utility scripts in `src/`. Run via `pnpm --filter @workspace/scripts run <script>`.
+
+## Environment Variables
+
+- `TMDB_API_KEY` — TMDB v3 API key (hardcoded fallback for dev)
+- `DATABASE_URL` — PostgreSQL connection string (auto-provided by Replit)
+- `PORT` — server port (auto-assigned per artifact)
