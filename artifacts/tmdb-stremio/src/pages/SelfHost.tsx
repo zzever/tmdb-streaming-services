@@ -162,8 +162,8 @@ export default function SelfHost() {
         <div>
           <Step number={1} title="Clona el repositorio" icon={<Github className="w-4 h-4" />}>
             <p>Haz fork del proyecto en GitHub o clónalo directamente en tu máquina:</p>
-            <CodeBlock code={`git clone https://github.com/tu-usuario/tmdb-stremio.git
-cd tmdb-stremio`} />
+            <CodeBlock code={`git clone https://github.com/zzever/tmdb-streaming-services.git
+cd tmdb-streaming-services`} />
           </Step>
 
           <Step number={2} title="Instala las dependencias" icon={<Package className="w-4 h-4" />}>

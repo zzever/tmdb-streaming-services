@@ -7,7 +7,7 @@ import {
   Loader2, MonitorPlay, AlertCircle, ExternalLink,
   Clock, Star, Film, Globe, Users, Play, ChevronRight, Search,
 } from "lucide-react";
-import type { StreamingProvider } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { StreamingProvider, SimilarTitle } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
 
 interface ProviderModalProps {
@@ -85,6 +85,7 @@ export function ProviderModal({
   country, initialProviders,
 }: ProviderModalProps) {
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const [selectedSimilar, setSelectedSimilar] = useState<SimilarTitle | null>(null);
 
   const shouldFetchProviders = isOpen && !!imdbId && (!initialProviders || initialProviders.length === 0);
   const { data: providersData, isLoading: isLoadingProviders, isError: isErrorProviders } = useGetStreamingProviders(
@@ -111,7 +112,25 @@ export function ProviderModal({
 
   const heroImg = backdrop || (poster ? getTmdbImage(poster, "original") : null);
 
+  const nestedSimilarModal = selectedSimilar ? (
+    <ProviderModal
+      isOpen={true}
+      onClose={() => setSelectedSimilar(null)}
+      tmdbId={selectedSimilar.tmdbId}
+      imdbId={null}
+      type={type}
+      title={selectedSimilar.title}
+      poster={selectedSimilar.poster}
+      backdrop={selectedSimilar.backdrop}
+      rating={selectedSimilar.rating}
+      year={selectedSimilar.year}
+      genres={selectedSimilar.genres}
+      country={country}
+    />
+  ) : null;
+
   return (
+    <>
     <Dialog isOpen={isOpen} onClose={onClose}>
       {/* Trailer overlay */}
       {trailerOpen && details?.trailerKey && (
@@ -271,10 +290,16 @@ export function ProviderModal({
               <h3 className="text-xs uppercase tracking-widest text-white/30 font-semibold mb-3 flex items-center gap-2">
                 <Users className="w-3.5 h-3.5" /> Reparto
               </h3>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {details.cast.map((actor, i) => (
-                  <div key={`${actor.name}-${i}`} className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16">
-                    <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 shadow-lg bg-white/5">
+                  <a
+                    key={`${actor.name}-${i}`}
+                    href={`https://www.themoviedb.org/search/person?query=${encodeURIComponent(actor.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16 group cursor-pointer"
+                  >
+                    <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 shadow-lg bg-white/5 group-hover:border-white/30 group-hover:scale-105 transition-all duration-200">
                       {actor.photo ? (
                         <img src={actor.photo} alt={actor.name} className="w-full h-full object-cover" />
                       ) : (
@@ -284,10 +309,10 @@ export function ProviderModal({
                       )}
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] font-semibold text-white/75 leading-tight line-clamp-2">{actor.name}</p>
+                      <p className="text-[10px] font-semibold text-white/75 group-hover:text-white leading-tight line-clamp-2 transition-colors">{actor.name}</p>
                       <p className="text-[9px] text-white/30 leading-tight line-clamp-1 mt-0.5">{actor.character}</p>
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -344,10 +369,16 @@ export function ProviderModal({
               <h3 className="text-xs uppercase tracking-widest text-white/30 font-semibold mb-3 flex items-center gap-2">
                 <ChevronRight className="w-3.5 h-3.5" /> Títulos similares
               </h3>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {details.similar.map((s) => (
-                  <div key={s.tmdbId} className="flex-shrink-0 w-24 rounded-xl overflow-hidden cursor-pointer group"
-                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}>
+                  <motion.div
+                    key={s.tmdbId}
+                    whileHover={{ y: -3, scale: 1.03 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 26 }}
+                    onClick={() => setSelectedSimilar(s)}
+                    className="flex-shrink-0 w-24 rounded-xl overflow-hidden cursor-pointer group"
+                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}
+                  >
                     <div className="aspect-[2/3] bg-white/5 relative overflow-hidden">
                       {s.poster ? (
                         <img src={s.poster} alt={s.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
@@ -361,12 +392,15 @@ export function ProviderModal({
                           {s.rating.toFixed(1)}
                         </div>
                       )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+                        <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-80 transition-opacity fill-white drop-shadow-lg" />
+                      </div>
                     </div>
                     <div className="px-1.5 py-1.5">
-                      <p className="text-[10px] font-semibold text-white/70 line-clamp-2 leading-tight">{s.title}</p>
+                      <p className="text-[10px] font-semibold text-white/70 group-hover:text-white line-clamp-2 leading-tight transition-colors">{s.title}</p>
                       <p className="text-[9px] text-white/30 mt-0.5">{s.year || ""}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -375,5 +409,8 @@ export function ProviderModal({
         </div>
       </div>
     </Dialog>
+
+    {nestedSimilarModal}
+    </>
   );
 }
