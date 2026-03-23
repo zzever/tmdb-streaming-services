@@ -150,7 +150,6 @@ export default function Home() {
                   <span className="gradient-text">
                     {activeType === "movie" ? "Películas" : "Series"}
                   </span>
-                  <span className="text-white/50"> en España</span>
                 </>
               )}
             </h1>
