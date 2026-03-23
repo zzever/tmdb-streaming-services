@@ -30,7 +30,7 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.9.0",
+  version: "2.10.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming en España. URLs directas vía JustWatch — Netflix, Prime, Disney+, Max, Apple TV+, Crunchyroll (anime), Rakuten TV, Pluto TV, Filmin, Movistar+ (programas), Mitele. Anime Kitsu. Conciertos: YouTube Music + Archive.org.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
