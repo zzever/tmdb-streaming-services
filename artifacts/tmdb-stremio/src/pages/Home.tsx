@@ -7,6 +7,8 @@ import {
   fetchRandomTitle,
   MOVIE_GENRES,
   SERIES_GENRES,
+  type ReleaseTitle,
+  type DiscoverTitle,
 } from "@/hooks/use-media-api";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
@@ -23,17 +25,27 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
-import type { ReleaseTitle, DiscoverTitle } from "@/hooks/use-media-api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
 
 // ── Release modes ──────────────────────────────────────────────
-const RELEASE_MODES = [
-  { id: "upcoming-movie", label: "Próximamente", type: "movie" as const, mode: "upcoming" },
-  { id: "now_playing-movie", label: "En cines", type: "movie" as const, mode: "now_playing" },
-  { id: "on_the_air-series", label: "En emisión", type: "series" as const, mode: "on_the_air" },
+type ReleaseMode = {
+  id: string;
+  label: string;
+  type: "movie" | "series";
+  mode: string;
+  releaseType: "theater" | "streaming" | "any";
+  badge: "cine" | "plataforma" | "series";
+  badgeColor: string;
+};
+
+const RELEASE_MODES: ReleaseMode[] = [
+  { id: "upcoming-movie-theater", label: "Próximamente en cines", type: "movie", mode: "upcoming", releaseType: "any", badge: "cine", badgeColor: "rgba(229,9,20,0.7)" },
+  { id: "nowplaying-movie-theater", label: "Ahora en cines", type: "movie", mode: "now_playing", releaseType: "any", badge: "cine", badgeColor: "rgba(229,9,20,0.7)" },
+  { id: "streaming-movie", label: "En plataformas · Películas", type: "movie", mode: "streaming", releaseType: "streaming", badge: "plataforma", badgeColor: "rgba(99,102,241,0.7)" },
+  { id: "on_the_air-series", label: "En plataformas · Series", type: "series", mode: "on_the_air", releaseType: "streaming", badge: "series", badgeColor: "rgba(16,185,129,0.7)" },
 ];
 
 function formatDate(dateStr: string | null) {
@@ -49,28 +61,77 @@ interface ReleasesViewProps {
   onSelect: (t: ReleaseTitle) => void;
 }
 
+const BADGE_ICONS: Record<string, React.ReactNode> = {
+  cine: <Film className="w-3 h-3" />,
+  plataforma: <MonitorPlay className="w-3 h-3" />,
+  series: <Tv2 className="w-3 h-3" />,
+};
+
 function ReleasesView({ country, onSelect }: ReleasesViewProps) {
   const [activeMode, setActiveMode] = useState(RELEASE_MODES[0].id);
   const selected = RELEASE_MODES.find((m) => m.id === activeMode) ?? RELEASE_MODES[0];
-  const { data, isLoading } = useGetReleases({ type: selected.type, country, mode: selected.mode });
+  const { data, isLoading } = useGetReleases({
+    type: selected.type,
+    country,
+    mode: selected.mode,
+    releaseType: selected.releaseType,
+  });
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
-        {RELEASE_MODES.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setActiveMode(m.id)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border ${
-              activeMode === m.id
-                ? "text-white bg-white/10 border-white/12"
-                : "text-white/40 hover:text-white/65 border-transparent"
-            }`}
-          >
-            {m.id.includes("series") ? <Tv2 className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
-            {m.label}
-          </button>
-        ))}
+      {/* Mode selector with visual grouping */}
+      <div className="flex items-start gap-4 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+        {/* Cinema group */}
+        <div className="flex flex-col gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 px-1">
+            <Film className="w-3 h-3 text-primary/50" />
+            <span className="text-[9px] uppercase tracking-widest text-primary/50 font-bold">Cine</span>
+          </div>
+          <div className="flex gap-1.5">
+            {RELEASE_MODES.filter((m) => m.badge === "cine").map((m) => (
+              <button key={m.id} onClick={() => setActiveMode(m.id)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border ${
+                  activeMode === m.id ? "text-white border-primary/35" : "text-white/40 hover:text-white/65 border-transparent"
+                }`}
+                style={activeMode === m.id ? { background: "rgba(229,9,20,0.12)" } : {}}>
+                {m.label.replace("Próximamente en cines", "Próximamente").replace("Ahora en cines", "Ahora")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-10 self-end mb-0.5" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+        {/* Streaming group */}
+        <div className="flex flex-col gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 px-1">
+            <MonitorPlay className="w-3 h-3 text-indigo-400/60" />
+            <span className="text-[9px] uppercase tracking-widest text-indigo-400/60 font-bold">Plataformas</span>
+          </div>
+          <div className="flex gap-1.5">
+            {RELEASE_MODES.filter((m) => m.badge !== "cine").map((m) => (
+              <button key={m.id} onClick={() => setActiveMode(m.id)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border ${
+                  activeMode === m.id ? "text-white border-indigo-400/30" : "text-white/40 hover:text-white/65 border-transparent"
+                }`}
+                style={activeMode === m.id ? { background: "rgba(99,102,241,0.12)" } : {}}>
+                {m.badge === "series" ? <Tv2 className="w-3 h-3" /> : <Film className="w-3 h-3" />}
+                {m.label.replace("En plataformas · ", "")}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Active badge indicator */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md"
+          style={{ background: `${selected.badgeColor.replace("0.7)", "0.12)")}`, color: selected.badgeColor.replace("0.7", "0.9"), border: `1px solid ${selected.badgeColor.replace("0.7", "0.25")}` }}>
+          {BADGE_ICONS[selected.badge]}
+          {selected.badge === "cine" ? "Estreno en cine" : selected.badge === "series" ? "Series en plataformas" : "Estreno en plataformas"}
+        </span>
+        <span className="text-xs text-white/25">{selected.label}</span>
       </div>
 
       <AnimatePresence mode="wait">
@@ -100,13 +161,21 @@ function ReleasesView({ country, onSelect }: ReleasesViewProps) {
                         <span className="text-[10px] font-bold text-yellow-400">{item.rating.toFixed(1)}</span>
                       </div>
                     )}
+                    {/* Cine/streaming badge on card */}
+                    <div className="absolute top-1.5 left-1.5">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5"
+                        style={{ background: selected.badgeColor, color: "rgba(255,255,255,0.92)" }}>
+                        {BADGE_ICONS[selected.badge]}
+                        {selected.badge === "cine" ? "Cine" : selected.badge === "series" ? "Serie" : "Stream"}
+                      </span>
+                    </div>
                   </div>
                   <div className="p-2 pb-2.5">
                     <p className="text-[11px] font-semibold text-white/75 group-hover:text-white line-clamp-2 leading-tight transition-colors mb-1">{item.title}</p>
                     {item.releaseDate && (
                       <div className="flex items-center gap-1">
-                        <CalendarDays className="w-2.5 h-2.5 text-primary/60 shrink-0" />
-                        <span className="text-[9px] text-primary/60 font-medium">{formatDate(item.releaseDate)}</span>
+                        <CalendarDays className="w-2.5 h-2.5 text-white/30 shrink-0" />
+                        <span className="text-[9px] text-white/35 font-medium">{formatDate(item.releaseDate)}</span>
                       </div>
                     )}
                     {item.genres.length > 0 && <p className="text-[9px] text-white/25 mt-0.5 line-clamp-1">{item.genres[0]}</p>}

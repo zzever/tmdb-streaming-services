@@ -243,10 +243,31 @@ export function ProviderModal({
                     <StatPill icon={<Film className="w-3.5 h-3.5" />} label={`${details.numberOfSeasons} temporadas`} />
                   )}
                   {details?.director && (
-                    <StatPill icon={<Users className="w-3.5 h-3.5" />} label={`Dir. ${details.director}`} />
+                    <button
+                      onClick={() => setSelectedActorName(details.director!)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/60 hover:text-white/90 transition-all duration-200 group"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+                    >
+                      <Users className="w-3.5 h-3.5 text-white/35 group-hover:text-white/60" />
+                      <span className="text-white/30 group-hover:text-white/50">Dir.</span>
+                      <span className="font-semibold text-white/70 group-hover:text-white">{details.director}</span>
+                    </button>
                   )}
                   {details?.creators && details.creators.length > 0 && (
-                    <StatPill icon={<Users className="w-3.5 h-3.5" />} label={`Creado por ${details.creators.join(", ")}`} />
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {details.creators.map((creator) => (
+                        <button
+                          key={creator}
+                          onClick={() => setSelectedActorName(creator)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/60 hover:text-white/90 transition-all duration-200 group"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+                        >
+                          <Users className="w-3.5 h-3.5 text-white/35 group-hover:text-white/60" />
+                          <span className="text-white/30">Creado por</span>
+                          <span className="font-semibold text-white/70 group-hover:text-white">{creator}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
                   {details?.budget && (
                     <StatPill icon={<Film className="w-3.5 h-3.5" />} label={`Presupuesto ${fmt(details.budget)}`} />

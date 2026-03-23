@@ -59,14 +59,14 @@ export interface ReleaseTitle {
 }
 
 export function useGetReleases(
-  params: { type: "movie" | "series"; country?: string; mode?: string },
+  params: { type: "movie" | "series"; country?: string; mode?: string; releaseType?: "theater" | "streaming" | "any" },
   options?: { query?: { enabled?: boolean } }
 ) {
-  const { type, country = "ES", mode = "upcoming" } = params;
+  const { type, country = "ES", mode = "upcoming", releaseType = "any" } = params;
   return useQuery({
-    queryKey: ["releases", type, country, mode],
+    queryKey: ["releases", type, country, mode, releaseType],
     queryFn: async () => {
-      const url = `/api/streaming/releases?type=${type}&country=${country}&mode=${mode}`;
+      const url = `/api/streaming/releases?type=${type}&country=${country}&mode=${mode}&releaseType=${releaseType}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch releases");
       return res.json() as Promise<{ results: ReleaseTitle[] }>;
@@ -137,6 +137,7 @@ export interface PersonData {
   name: string;
   photo: string | null;
   credits: PersonCredit[];
+  role: "actor" | "director";
 }
 
 export function useGetPersonFilmography(

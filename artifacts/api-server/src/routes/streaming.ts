@@ -401,19 +401,48 @@ router.get("/streaming/releases", async (req, res) => {
   const type = String(req.query.type ?? "movie") as "movie" | "series";
   const country = String(req.query.country ?? "ES");
   const mode = String(req.query.mode ?? "upcoming");
+  // releaseType: "theater" = cinema only, "streaming" = platform releases, "any" = all
+  const releaseType = String(req.query.releaseType ?? "any") as "theater" | "streaming" | "any";
 
   try {
-    let endpoint = "";
-    if (type === "movie") {
-      endpoint = mode === "now_playing" ? "/movie/now_playing" : "/movie/upcoming";
-    } else {
-      endpoint = mode === "airing_today" ? "/tv/airing_today" : "/tv/on_the_air";
-    }
+    let raw: { results?: any[]; total_pages?: number };
 
-    const raw = await tmdbFetch<{ results?: any[]; total_pages?: number }>(endpoint, {
-      region: country,
-      page: "1",
-    });
+    if (releaseType === "streaming") {
+      // Use discover API: recently released to streaming platforms
+      const today = new Date();
+      const ninetyDaysAgo = new Date(today);
+      ninetyDaysAgo.setDate(today.getDate() - 90);
+      const todayStr = today.toISOString().slice(0, 10);
+      const pastStr = ninetyDaysAgo.toISOString().slice(0, 10);
+
+      const discoverPath = type === "series" ? "/discover/tv" : "/discover/movie";
+      const params: Record<string, string> = {
+        page: "1",
+        sort_by: type === "series" ? "first_air_date.desc" : "primary_release_date.desc",
+        watch_region: country.toUpperCase(),
+        with_watch_monetization_types: "flatrate|subscription|free|ads",
+      };
+      if (type === "movie") {
+        params["primary_release_date.gte"] = pastStr;
+        params["primary_release_date.lte"] = todayStr;
+      } else {
+        params["first_air_date.gte"] = pastStr;
+        params["first_air_date.lte"] = todayStr;
+      }
+      raw = await tmdbFetch<{ results?: any[]; total_pages?: number }>(discoverPath, params);
+    } else {
+      // Standard TMDB endpoints (theatrical)
+      let endpoint = "";
+      if (type === "movie") {
+        endpoint = mode === "now_playing" ? "/movie/now_playing" : "/movie/upcoming";
+      } else {
+        endpoint = mode === "airing_today" ? "/tv/airing_today" : "/tv/on_the_air";
+      }
+      raw = await tmdbFetch<{ results?: any[]; total_pages?: number }>(endpoint, {
+        region: country,
+        page: "1",
+      });
+    }
 
     const results = (raw.results ?? []).slice(0, 24).map((r: any) => ({
       tmdbId: r.id,
@@ -426,6 +455,7 @@ router.get("/streaming/releases", async (req, res) => {
       overview: r.overview || null,
       genres: mapGenres(r.genre_ids),
       type: type === "series" ? "series" : "movie",
+      releaseType,
     }));
 
     res.json({ results });
@@ -443,21 +473,59 @@ router.get("/streaming/person", async (req, res) => {
   }
 
   try {
-    // Search for the person
     const searchData = await tmdbFetch<{ results?: any[] }>("/search/person", { query: name });
     const person = searchData.results?.[0];
     if (!person) {
-      res.json({ name, credits: [] });
+      res.json({ name, credits: [], role: "actor" });
       return;
     }
 
-    // Fetch combined credits
-    const credits = await tmdbFetch<{ cast?: any[] }>(`/person/${person.id}/combined_credits`);
-    const cast = (credits.cast ?? [])
+    // Fetch combined credits (cast + crew)
+    const credits = await tmdbFetch<{ cast?: any[]; crew?: any[] }>(`/person/${person.id}/combined_credits`);
+
+    // Determine if person is primarily a director (crew)
+    const crewItems: any[] = (credits.crew ?? [])
       .filter((c: any) => c.media_type === "movie" || c.media_type === "tv")
-      .filter((c: any) => c.vote_count > 20 && (c.title || c.name))
-      .sort((a: any, b: any) => (b.vote_average ?? 0) - (a.vote_average ?? 0))
-      .slice(0, 20)
+      .filter((c: any) => (c.title || c.name) && c.vote_count >= 5);
+
+    const castItems: any[] = (credits.cast ?? [])
+      .filter((c: any) => c.media_type === "movie" || c.media_type === "tv")
+      .filter((c: any) => (c.title || c.name) && c.vote_count >= 5);
+
+    const isDirector = crewItems.filter((c) => c.job === "Director").length >= 3 && crewItems.length > castItems.length;
+    const role: "director" | "actor" = isDirector ? "director" : "actor";
+
+    let finalCredits: any[] = [];
+
+    if (isDirector) {
+      // Merge director + writer + producer credits, dedup by tmdbId
+      const seen = new Set<number>();
+      const directorJobs = ["Director", "Writer", "Screenplay", "Producer", "Executive Producer", "Story"];
+      for (const c of crewItems) {
+        if (directorJobs.includes(c.job) && !seen.has(c.id)) {
+          seen.add(c.id);
+          finalCredits.push({ ...c, character: c.job });
+        }
+      }
+    } else {
+      // Actor: use cast credits
+      const seen = new Set<number>();
+      for (const c of castItems) {
+        if (!seen.has(c.id)) {
+          seen.add(c.id);
+          finalCredits.push(c);
+        }
+      }
+    }
+
+    // Sort by popularity score (vote_count * vote_average), take top 24
+    finalCredits = finalCredits
+      .sort((a: any, b: any) => {
+        const scoreA = (a.vote_count ?? 0) * (a.vote_average ?? 0);
+        const scoreB = (b.vote_count ?? 0) * (b.vote_average ?? 0);
+        return scoreB - scoreA;
+      })
+      .slice(0, 24)
       .map((c: any) => ({
         tmdbId: c.id,
         title: c.title || c.name || "",
@@ -472,7 +540,8 @@ router.get("/streaming/person", async (req, res) => {
     res.json({
       name: person.name,
       photo: person.profile_path ? `https://image.tmdb.org/t/p/w185${person.profile_path}` : null,
-      credits: cast,
+      credits: finalCredits,
+      role,
     });
   } catch (err) {
     req.log.error({ err }, "Error fetching person credits");

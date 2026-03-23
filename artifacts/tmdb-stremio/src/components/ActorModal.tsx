@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { useGetPersonFilmography } from "@/hooks/use-media-api";
-import { Loader2, Star, Film, Tv2, User } from "lucide-react";
+import { Loader2, Star, Film, Tv2, User, Video, Clapperboard } from "lucide-react";
 import { motion } from "framer-motion";
 import { ProviderModal } from "./ProviderModal";
 
@@ -54,9 +54,17 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
             <div>
               <h2 className="text-xl font-display font-bold text-white/90">{actorName}</h2>
               {data && !isLoading && (
-                <p className="text-sm text-white/35 mt-0.5">
-                  {data.credits.length} títulos destacados
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest"
+                    style={{
+                      background: data.role === "director" ? "rgba(245,158,11,0.12)" : "rgba(99,102,241,0.1)",
+                      color: data.role === "director" ? "rgba(252,211,77,0.9)" : "rgba(165,180,252,0.9)",
+                      border: data.role === "director" ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(99,102,241,0.2)",
+                    }}>
+                    {data.role === "director" ? "Director" : "Actor"}
+                  </span>
+                  <p className="text-sm text-white/35">{data.credits.length} títulos destacados</p>
+                </div>
               )}
             </div>
           </div>
