@@ -5,9 +5,9 @@ import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
 import { ProviderModal } from "@/components/ProviderModal";
 import { useLocale } from "@/context/LocaleContext";
-import { Loader2, Copy, Check, ExternalLink } from "lucide-react";
+import { Copy, Check, Zap, Plug } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
@@ -22,45 +22,69 @@ function StremioInstallBanner() {
   };
 
   return (
-    <section className="relative z-10 border-t border-white/10 bg-gradient-to-r from-[#2b0fff]/10 via-[#6c3be8]/10 to-[#2b0fff]/10 py-10">
-      <div className="max-w-3xl mx-auto px-4 text-center">
-        <div className="inline-flex items-center gap-2 bg-primary/20 text-primary border border-primary/30 rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-wider mb-4">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          Addon para Stremio
-        </div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Instala el addon en Stremio</h2>
-        <p className="text-muted-foreground mb-6 text-sm sm:text-base">
-          Ve directamente desde Stremio qué películas y series están disponibles en las plataformas de streaming de España.
-        </p>
-
-        {/* Install button */}
-        <a
-          href={STREMIO_INSTALL_URL}
-          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-3 rounded-xl transition-colors mb-6 shadow-lg shadow-primary/30"
+    <section className="relative z-10 py-16 overflow-hidden">
+      {/* Glass panel */}
+      <div className="max-w-2xl mx-auto px-4">
+        <div
+          className="relative rounded-3xl p-8 text-center overflow-hidden"
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            backdropFilter: "blur(24px)",
+          }}
         >
-          <ExternalLink className="w-4 h-4" />
-          Instalar en Stremio
-        </a>
+          {/* Ambient glow inside card */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full"
+              style={{ background: "radial-gradient(ellipse, rgba(229,9,20,0.12) 0%, transparent 70%)" }} />
+          </div>
 
-        <p className="text-muted-foreground text-xs mb-3">O copia la URL del manifest para instalarlo manualmente:</p>
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary/90 border border-primary/20 rounded-full px-3.5 py-1 text-xs font-semibold uppercase tracking-widest mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              Addon para Stremio
+            </div>
 
-        {/* Manifest URL copybox */}
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-3 max-w-xl mx-auto">
-          <code className="flex-1 text-xs text-left text-primary/80 truncate font-mono select-all">
-            {MANIFEST_URL}
-          </code>
-          <button
-            onClick={handleCopy}
-            className="flex-shrink-0 p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-            title="Copiar URL"
-          >
-            {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-          </button>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold mb-2">
+              <span className="gradient-text">Instala el addon</span>
+              <span className="text-white/90"> en Stremio</span>
+            </h2>
+            <p className="text-white/40 text-sm mb-7 leading-relaxed">
+              Ve directamente desde Stremio qué películas y series están disponibles<br className="hidden sm:block" /> en las plataformas de streaming de España.
+            </p>
+
+            {/* Install button */}
+            <a
+              href={STREMIO_INSTALL_URL}
+              className="inline-flex items-center gap-2.5 bg-primary hover:bg-primary/90 text-white font-semibold px-7 py-3 rounded-xl transition-all duration-200 mb-7 glow-primary text-sm"
+            >
+              <Plug className="w-4 h-4" />
+              Instalar en Stremio
+            </a>
+
+            <p className="text-white/25 text-xs mb-3">O copia la URL del manifest para instalarlo manualmente:</p>
+
+            <div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl mx-auto max-w-lg"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <code className="flex-1 text-xs text-left text-primary/60 truncate font-mono select-all">
+                {MANIFEST_URL}
+              </code>
+              <button
+                onClick={handleCopy}
+                className="flex-shrink-0 p-1.5 rounded-lg hover:bg-white/8 text-white/30 hover:text-white/80 transition-colors"
+                title="Copiar URL"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            <p className="text-white/20 text-xs mt-4">
+              En Stremio: Addons → Addon del repositorio → Pegar URL
+            </p>
+          </div>
         </div>
-
-        <p className="text-muted-foreground/60 text-xs mt-4">
-          En Stremio: Addons → Addon del repositorio → Pegar URL
-        </p>
       </div>
     </section>
   );
@@ -76,13 +100,11 @@ export default function Home() {
 
   const isSearching = debouncedQuery.length > 2;
 
-  // Fetch Popular
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
     { type: activeType, page: 1, country: locale.code },
     { query: { enabled: !isSearching } }
   );
 
-  // Fetch Search
   const { data: searchData, isLoading: isLoadingSearch } = useSearchTitles(
     { query: debouncedQuery, type: activeType },
     { query: { enabled: isSearching } }
@@ -91,101 +113,132 @@ export default function Home() {
   const displayedData = isSearching ? searchData?.results : popularData?.results;
   const isLoading = isSearching ? isLoadingSearch : isLoadingPopular;
 
-  const handleMediaClick = (media: PopularTitle | SearchResult) => {
-    setSelectedMedia(media);
-  };
-
   return (
-    <div className="min-h-screen bg-background relative selection:bg-primary/30">
-      {/* Background Image Effect */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <img 
-          src={`${import.meta.env.BASE_URL}images/hero-bg.png`} 
-          alt="" 
-          className="w-full h-full object-cover opacity-20 object-top mix-blend-screen"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/80 to-background" />
-      </div>
+    <div className="min-h-screen relative" style={{ background: "#080912" }}>
 
-      <Header 
-        searchQuery={searchQuery} 
-        setSearchQuery={setSearchQuery} 
-        activeType={activeType} 
-        setActiveType={setActiveType} 
+      {/* Ambient orbs */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+
+      <Header
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        activeType={activeType}
+        setActiveType={setActiveType}
       />
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        
-        <div className="mb-8 flex flex-col sm:flex-row items-end justify-between gap-4">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+
+        {/* Section heading */}
+        <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-display font-bold text-white tracking-tight">
-              {isSearching ? `Search Results for "${debouncedQuery}"` : `Popular ${activeType === 'movie' ? 'Movies' : 'TV Series'}`}
+            <div className="flex items-center gap-2 mb-1.5">
+              <Zap className="w-4 h-4 text-primary/70" />
+              <span className="text-xs uppercase tracking-widest text-white/30 font-semibold">
+                {isSearching ? "Resultados" : "Populares"}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">
+              {isSearching ? (
+                <>
+                  <span className="text-white/80">Resultados para </span>
+                  <span className="gradient-text-primary">"{debouncedQuery}"</span>
+                </>
+              ) : (
+                <>
+                  <span className="gradient-text">
+                    {activeType === "movie" ? "Películas" : "Series"}
+                  </span>
+                  <span className="text-white/50"> en España</span>
+                </>
+              )}
             </h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-              {isSearching 
-                ? "Find where to stream your favorite titles in Spain." 
-                : "Discover trending entertainment available on Spanish streaming platforms."}
-            </p>
           </div>
+
+          {displayedData && displayedData.length > 0 && (
+            <span className="text-xs text-white/20 tabular-nums shrink-0">
+              {displayedData.length} títulos
+            </span>
+          )}
         </div>
 
-        {/* Content State */}
-        {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="aspect-[2/3] rounded-xl bg-white/5 animate-pulse border border-white/5" />
-            ))}
-          </div>
-        ) : displayedData && displayedData.length > 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6"
-          >
-            {displayedData.map((item, i) => (
-              <motion.div 
-                key={`${item.tmdbId}-${i}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05, duration: 0.4, ease: "easeOut" }}
+        {/* Grid */}
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="skeleton"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
+            >
+              {[...Array(12)].map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-[2/3] rounded-2xl shimmer"
+                  style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.03)" }}
+                />
+              ))}
+            </motion.div>
+          ) : displayedData && displayedData.length > 0 ? (
+            <motion.div
+              key="grid"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
+            >
+              {displayedData.map((item, i) => (
+                <motion.div
+                  key={`${item.tmdbId}-${i}`}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03, duration: 0.35, ease: "easeOut" }}
+                >
+                  <MediaCard media={item} onClick={setSelectedMedia} />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-24 text-center"
+            >
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
               >
-                <MediaCard media={item} onClick={handleMediaClick} />
-              </motion.div>
-            ))}
-          </motion.div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <img 
-              src={`${import.meta.env.BASE_URL}images/empty-state.png`} 
-              alt="No results" 
-              className="w-48 h-48 object-contain opacity-50 mb-6 drop-shadow-2xl mix-blend-screen"
-            />
-            <h3 className="text-2xl font-display font-bold text-white mb-2">No titles found</h3>
-            <p className="text-muted-foreground max-w-md">
-              We couldn't find any {activeType === 'movie' ? 'movies' : 'series'} matching your criteria. Try adjusting your search.
-            </p>
-            {isSearching && (
-              <button 
-                onClick={() => setSearchQuery("")}
-                className="mt-6 px-6 py-2 rounded-full bg-primary/20 text-primary border border-primary/30 hover:bg-primary hover:text-white transition-colors"
-              >
-                Clear Search
-              </button>
-            )}
-          </div>
-        )}
+                <Zap className="w-7 h-7 text-white/20" />
+              </div>
+              <h3 className="text-xl font-display font-bold text-white/70 mb-2">Sin resultados</h3>
+              <p className="text-white/30 text-sm max-w-sm">
+                No encontramos {activeType === "movie" ? "películas" : "series"} para "{debouncedQuery}".
+              </p>
+              {isSearching && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-5 px-5 py-2 rounded-xl text-sm text-white/60 hover:text-white transition-colors"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  Limpiar búsqueda
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* Stremio Install Banner */}
       <StremioInstallBanner />
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 bg-black/20 backdrop-blur-md py-8 text-center text-muted-foreground text-sm">
-        <p>Data provided by TMDB. Stremio Addon Server.</p>
-        <p className="mt-1 opacity-60">Streaming availability tailored for Spain (ES).</p>
+      <footer className="relative z-10 py-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+        <p className="text-white/20 text-xs">
+          Data provided by TMDB · Streaming availability for Spain
+        </p>
       </footer>
 
-      {/* Modal */}
       {selectedMedia && (
         <ProviderModal
           isOpen={!!selectedMedia}

@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, Film, Tv, Play } from "lucide-react";
+import { Search, Film, Tv, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocaleSelector } from "./LocaleSelector";
 
@@ -12,66 +12,59 @@ interface HeaderProps {
 
 export function Header({ searchQuery, setSearchQuery, activeType, setActiveType }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 w-full glass border-b border-white/10 shadow-lg shadow-black/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-8">
-        
+    <header className="sticky top-0 z-40 w-full glass">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-[72px] flex items-center gap-3 sm:gap-6">
+
         {/* Logo */}
-        <div className="flex items-center gap-2 text-primary shrink-0 pt-4 sm:pt-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white shadow-lg shadow-primary/20">
-            <Play className="w-4 h-4 fill-current" />
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center relative">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-primary/40 opacity-90" />
+            <div className="absolute inset-0 rounded-xl glow-primary opacity-60" />
+            <Sparkles className="relative w-4 h-4 text-white" />
           </div>
-          <span className="font-display font-bold text-xl tracking-tight text-white hidden sm:block">
-            Stremio<span className="text-primary font-black">ES</span>
+          <span className="font-display font-bold text-lg tracking-tight hidden sm:block">
+            <span className="text-white/90">Stremio</span>
+            <span className="gradient-text-primary font-black">ES</span>
           </span>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex-1 w-full max-w-xl relative group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+        {/* Search */}
+        <div className="flex-1 min-w-0 max-w-lg relative group">
+          <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+            <Search className="w-3.5 h-3.5 text-white/30 group-focus-within:text-primary/70 transition-colors duration-200" />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for movies or series..."
-            className="w-full bg-black/20 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
+            placeholder="Buscar películas o series..."
+            className="w-full h-9 bg-white/[0.04] border border-white/[0.08] rounded-xl pl-9 pr-4 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:bg-white/[0.07] focus:border-white/20 focus:text-white transition-all duration-200"
           />
         </div>
 
-        {/* Toggle Movies/Series */}
-        <div className="flex p-1 bg-black/40 rounded-full border border-white/5 shrink-0 pb-4 sm:pb-0">
-          <button
-            onClick={() => setActiveType("movie")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300",
-              activeType === "movie"
-                ? "bg-white/10 text-white shadow-md"
-                : "text-muted-foreground hover:text-white hover:bg-white/5"
-            )}
-          >
-            <Film className="w-4 h-4" />
-            Movies
-          </button>
-          <button
-            onClick={() => setActiveType("series")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300",
-              activeType === "series"
-                ? "bg-white/10 text-white shadow-md"
-                : "text-muted-foreground hover:text-white hover:bg-white/5"
-            )}
-          >
-            <Tv className="w-4 h-4" />
-            Series
-          </button>
+        {/* Type toggle */}
+        <div className="flex items-center p-1 bg-white/[0.04] rounded-xl border border-white/[0.06] shrink-0">
+          {(["movie", "series"] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setActiveType(type)}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+                activeType === type
+                  ? "bg-white/10 text-white shadow-sm border border-white/10"
+                  : "text-white/35 hover:text-white/70"
+              )}
+            >
+              {type === "movie" ? <Film className="w-3.5 h-3.5" /> : <Tv className="w-3.5 h-3.5" />}
+              {type === "movie" ? "Películas" : "Series"}
+            </button>
+          ))}
         </div>
 
-        {/* Locale Selector */}
-        <div className="shrink-0 pb-4 sm:pb-0">
+        {/* Locale */}
+        <div className="shrink-0">
           <LocaleSelector />
         </div>
-
       </div>
     </header>
   );
