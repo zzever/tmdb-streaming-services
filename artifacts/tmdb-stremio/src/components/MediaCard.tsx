@@ -154,18 +154,18 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
 
         {/* Action buttons */}
         {media.id && (
-          <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             <button onClick={handleToggleWatched} title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
-              className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
-                inWatched ? "bg-emerald-500/70 border-emerald-400/40" : "bg-black/40 border-white/10 hover:bg-emerald-500/20"
+              className={`w-7 h-7 rounded-full flex items-center justify-center border transition-all duration-200 hover:scale-110 ${
+                inWatched ? "bg-emerald-500/80 border-emerald-400/50" : "bg-white/5 border-white/15 hover:bg-emerald-500/20 hover:border-emerald-400/30"
               }`}>
-              <Eye className={`w-3 h-3 ${inWatched ? "text-white" : "text-white/60"}`} />
+              <Eye className={`w-3.5 h-3.5 ${inWatched ? "text-white" : "text-white/50"}`} />
             </button>
             <button onClick={handleToggleWatchlist} title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
-              className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
-                inList ? "bg-red-500/70 border-red-400/40" : "bg-black/40 border-white/10 hover:bg-red-500/20"
+              className={`w-7 h-7 rounded-full flex items-center justify-center border transition-all duration-200 hover:scale-110 ${
+                inList ? "bg-red-500/80 border-red-400/50" : "bg-white/5 border-white/15 hover:bg-red-500/20 hover:border-red-400/30"
               }`}>
-              <Heart className={`w-3 h-3 ${inList ? "fill-white text-white" : "text-white/60"}`} />
+              <Heart className={`w-3.5 h-3.5 ${inList ? "fill-white text-white" : "text-white/50"}`} />
             </button>
           </div>
         )}
@@ -289,35 +289,6 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
         {/* Top gradient for badges */}
         <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none z-10" />
 
-        {/* Watchlist heart button — always visible */}
-        {media.id && (
-          <button
-            onClick={handleToggleWatchlist}
-            className={`absolute bottom-2 right-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 border backdrop-blur-sm hover:scale-110 ${
-              inList
-                ? "opacity-100 bg-red-500/80 border-red-400/50"
-                : "opacity-30 group-hover:opacity-100 bg-black/60 border-white/10"
-            }`}
-            title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
-          >
-            <Heart className={`w-3.5 h-3.5 ${inList ? "fill-white text-white" : "text-white/70"}`} />
-          </button>
-        )}
-
-        {/* Visto (eye) button — always visible */}
-        {media.id && (
-          <button
-            onClick={handleToggleWatched}
-            className={`absolute bottom-2 left-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 border backdrop-blur-sm hover:scale-110 ${
-              inWatched
-                ? "opacity-100 bg-emerald-500/80 border-emerald-400/50"
-                : "opacity-30 group-hover:opacity-100 bg-black/60 border-white/10"
-            }`}
-            title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
-          >
-            <Eye className={`w-3.5 h-3.5 ${inWatched ? "text-white" : "text-white/70"}`} />
-          </button>
-        )}
 
         {/* Rating badge */}
         {media.rating && media.rating > 0 && (
@@ -395,8 +366,34 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
             )
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-white/30 font-medium shrink-0">{media.year || "—"}</span>
+          {media.id && (
+            <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={handleToggleWatched}
+                title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
+                className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-200 hover:scale-110 ${
+                  inWatched
+                    ? "bg-emerald-500/80 border-emerald-400/50"
+                    : "bg-white/5 border-white/15 hover:bg-emerald-500/20 hover:border-emerald-400/30"
+                }`}
+              >
+                <Eye className={`w-3 h-3 ${inWatched ? "text-white" : "text-white/50"}`} />
+              </button>
+              <button
+                onClick={handleToggleWatchlist}
+                title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
+                className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-200 hover:scale-110 ${
+                  inList
+                    ? "bg-red-500/80 border-red-400/50"
+                    : "bg-white/5 border-white/15 hover:bg-red-500/20 hover:border-red-400/30"
+                }`}
+              >
+                <Heart className={`w-3 h-3 ${inList ? "fill-white text-white" : "text-white/50"}`} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
