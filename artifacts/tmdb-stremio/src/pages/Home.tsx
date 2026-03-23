@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useGetPopularTitles, useSearchTitles } from "@/hooks/use-media-api";
+import { useGetPopularTitles, useSearchTitles, useGetReleases } from "@/hooks/use-media-api";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
@@ -8,13 +8,167 @@ import { ListsSection } from "@/components/ListSection";
 import { AddListDialog } from "@/components/AddListDialog";
 import { useLists } from "@/context/ListsContext";
 import { useLocale } from "@/context/LocaleContext";
-import { Copy, Check, Zap, Plug, Shuffle, BookMarked, Plus, Film, Tv2 } from "lucide-react";
+import { Copy, Check, Zap, Plug, Shuffle, BookMarked, Plus, Film, Tv2, Clapperboard, CalendarDays, Star, MonitorPlay } from "lucide-react";
 import { Link } from "wouter";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { ReleaseTitle } from "@/hooks/use-media-api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
 const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
+
+const RELEASE_MODES = [
+  { id: "upcoming-movie", label: "Próximamente", type: "movie" as const, mode: "upcoming" },
+  { id: "now_playing-movie", label: "En cines", type: "movie" as const, mode: "now_playing" },
+  { id: "on_the_air-series", label: "En emisión", type: "series" as const, mode: "on_the_air" },
+];
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
+interface ReleasesViewProps {
+  country: string;
+  onSelect: (t: ReleaseTitle) => void;
+}
+
+function ReleasesView({ country, onSelect }: ReleasesViewProps) {
+  const [activeMode, setActiveMode] = useState(RELEASE_MODES[0].id);
+  const selected = RELEASE_MODES.find((m) => m.id === activeMode) ?? RELEASE_MODES[0];
+
+  const { data, isLoading } = useGetReleases({
+    type: selected.type,
+    country,
+    mode: selected.mode,
+  });
+
+  return (
+    <div>
+      {/* Mode selector */}
+      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+        {RELEASE_MODES.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => setActiveMode(m.id)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+              activeMode === m.id
+                ? "text-white bg-white/12 border border-white/15"
+                : "text-white/35 hover:text-white/60 border border-transparent"
+            }`}
+          >
+            {m.id.includes("series") ? (
+              <Tv2 className="w-3.5 h-3.5" />
+            ) : (
+              <Film className="w-3.5 h-3.5" />
+            )}
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+          >
+            {[...Array(12)].map((_, i) => (
+              <div
+                key={i}
+                className="aspect-[2/3] rounded-2xl shimmer"
+                style={{ border: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.03)" }}
+              />
+            ))}
+          </motion.div>
+        ) : data && data.results.length > 0 ? (
+          <motion.div
+            key={activeMode}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+          >
+            {data.results.map((item, i) => (
+              <motion.div
+                key={`${item.tmdbId}-${i}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.025, duration: 0.3 }}
+              >
+                <div
+                  onClick={() => onSelect(item)}
+                  className="rounded-2xl overflow-hidden cursor-pointer group"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <div className="aspect-[2/3] bg-white/5 relative overflow-hidden">
+                    {item.poster ? (
+                      <img
+                        src={item.poster}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <MonitorPlay className="w-8 h-8 text-white/15" />
+                      </div>
+                    )}
+                    {item.rating && item.rating > 0 && (
+                      <div className="absolute top-1.5 right-1.5 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                        <Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
+                        <span className="text-[10px] font-bold text-yellow-400">
+                          {item.rating.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2 pb-2.5">
+                    <p className="text-[11px] font-semibold text-white/75 group-hover:text-white line-clamp-2 leading-tight transition-colors mb-1">
+                      {item.title}
+                    </p>
+                    {item.releaseDate && (
+                      <div className="flex items-center gap-1">
+                        <CalendarDays className="w-2.5 h-2.5 text-primary/60 shrink-0" />
+                        <span className="text-[9px] text-primary/60 font-medium">
+                          {formatDate(item.releaseDate)}
+                        </span>
+                      </div>
+                    )}
+                    {item.genres.length > 0 && (
+                      <p className="text-[9px] text-white/25 mt-0.5 line-clamp-1">{item.genres[0]}</p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-20"
+          >
+            <Clapperboard className="w-10 h-10 text-white/15 mb-3" />
+            <p className="text-white/30 text-sm">No hay estrenos disponibles ahora mismo.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function StremioInstallBanner() {
   const [copied, setCopied] = useState(false);
@@ -27,7 +181,6 @@ function StremioInstallBanner() {
 
   return (
     <section className="relative z-10 py-16 overflow-hidden">
-      {/* Glass panel */}
       <div className="max-w-2xl mx-auto px-4">
         <div
           className="relative rounded-3xl p-8 text-center overflow-hidden"
@@ -37,7 +190,6 @@ function StremioInstallBanner() {
             backdropFilter: "blur(24px)",
           }}
         >
-          {/* Ambient glow inside card */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full"
               style={{ background: "radial-gradient(ellipse, rgba(229,9,20,0.12) 0%, transparent 70%)" }} />
@@ -57,7 +209,6 @@ function StremioInstallBanner() {
               Ve directamente desde Stremio qué películas y series están disponibles<br className="hidden sm:block" /> en las plataformas de streaming de España.
             </p>
 
-            {/* Install button */}
             <a
               href={STREMIO_INSTALL_URL}
               className="inline-flex items-center gap-2.5 bg-primary hover:bg-primary/90 text-white font-semibold px-7 py-3 rounded-xl transition-all duration-200 mb-7 glow-primary text-sm"
@@ -94,22 +245,24 @@ function StremioInstallBanner() {
   );
 }
 
+type ViewMode = "browse" | "lists" | "releases";
+
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeType, setActiveType] = useState<"movie" | "series">("movie");
-  const [viewMode, setViewMode] = useState<"browse" | "lists">("browse");
+  const [viewMode, setViewMode] = useState<ViewMode>("browse");
   const [showAddList, setShowAddList] = useState(false);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
   const { lists } = useLists();
 
-  const [selectedMedia, setSelectedMedia] = useState<PopularTitle | SearchResult | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<PopularTitle | SearchResult | ReleaseTitle | null>(null);
 
   const isSearching = debouncedQuery.length > 2;
 
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
     { type: activeType, page: 1, country: locale.code },
-    { query: { enabled: !isSearching } }
+    { query: { enabled: !isSearching && viewMode === "browse" } }
   );
 
   const { data: searchData, isLoading: isLoadingSearch } = useSearchTitles(
@@ -120,10 +273,16 @@ export default function Home() {
   const displayedData = isSearching ? searchData?.results : popularData?.results;
   const isLoading = isSearching ? isLoadingSearch : isLoadingPopular;
 
+  const TABS = [
+    { id: "browse-movie", label: "Películas", icon: <Film className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, type: "movie" as const },
+    { id: "browse-series", label: "Series", icon: <Tv2 className="w-3.5 h-3.5" />, mode: "browse" as ViewMode, type: "series" as const },
+    { id: "releases", label: "Estrenos", icon: <Clapperboard className="w-3.5 h-3.5" />, mode: "releases" as ViewMode, type: null },
+    { id: "lists", label: "Mis Listas", icon: <BookMarked className="w-3.5 h-3.5" />, mode: "lists" as ViewMode, type: null },
+  ] as const;
+
   return (
     <div className="min-h-screen relative" style={{ background: "#080912" }}>
 
-      {/* Ambient orbs */}
       <div className="orb orb-1" />
       <div className="orb orb-2" />
       <div className="orb orb-3" />
@@ -140,17 +299,15 @@ export default function Home() {
         {/* View mode tabs */}
         <div className="flex items-center justify-between mb-6 gap-4">
           <div
-            className="flex items-center gap-1 p-1 rounded-2xl"
+            className="flex items-center gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-hide"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
           >
-            {([
-              { id: "browse-movie", label: "Películas", icon: <Film className="w-3.5 h-3.5" />, mode: "browse", type: "movie" as const },
-              { id: "browse-series", label: "Series", icon: <Tv2 className="w-3.5 h-3.5" />, mode: "browse", type: "series" as const },
-              { id: "lists", label: "Mis Listas", icon: <BookMarked className="w-3.5 h-3.5" />, mode: "lists", type: null },
-            ] as const).map((tab) => {
+            {TABS.map((tab) => {
               const isActive =
                 tab.mode === "lists"
                   ? viewMode === "lists"
+                  : tab.mode === "releases"
+                  ? viewMode === "releases"
                   : viewMode === "browse" && activeType === tab.type;
               return (
                 <button
@@ -158,12 +315,14 @@ export default function Home() {
                   onClick={() => {
                     if (tab.mode === "lists") {
                       setViewMode("lists");
+                    } else if (tab.mode === "releases") {
+                      setViewMode("releases");
                     } else {
                       setViewMode("browse");
                       setActiveType(tab.type!);
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
                     isActive
                       ? "text-white bg-white/10 shadow-sm"
                       : "text-white/35 hover:text-white/60"
@@ -190,7 +349,7 @@ export default function Home() {
                 <Plus className="w-3.5 h-3.5" />
                 Añadir lista
               </button>
-            ) : (
+            ) : viewMode === "browse" ? (
               <>
                 {displayedData && displayedData.length > 0 && (
                   <span className="text-xs text-white/20 tabular-nums">{displayedData.length} títulos</span>
@@ -210,12 +369,20 @@ export default function Home() {
                   </button>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         </div>
 
         {/* Lists view */}
         {viewMode === "lists" && <ListsSection />}
+
+        {/* Releases view */}
+        {viewMode === "releases" && (
+          <ReleasesView
+            country={locale.code}
+            onSelect={(t) => setSelectedMedia(t as any)}
+          />
+        )}
 
         {/* Browse / search grid */}
         {viewMode === "browse" && (
@@ -315,12 +482,12 @@ export default function Home() {
           isOpen={!!selectedMedia}
           onClose={() => setSelectedMedia(null)}
           tmdbId={selectedMedia.tmdbId}
-          imdbId={selectedMedia.imdbId}
+          imdbId={"imdbId" in selectedMedia ? selectedMedia.imdbId : null}
           type={selectedMedia.type as "movie" | "series"}
           title={selectedMedia.title}
           poster={selectedMedia.poster}
           backdrop={selectedMedia.backdrop}
-          overview={selectedMedia.overview}
+          overview={"overview" in selectedMedia ? selectedMedia.overview : null}
           rating={selectedMedia.rating}
           year={selectedMedia.year}
           genres={selectedMedia.genres}

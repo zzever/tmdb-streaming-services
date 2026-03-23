@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { StreamingProvider, SimilarTitle } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
+import { ActorModal } from "./ActorModal";
 
 interface ProviderModalProps {
   isOpen: boolean;
@@ -86,6 +87,7 @@ export function ProviderModal({
 }: ProviderModalProps) {
   const [trailerOpen, setTrailerOpen] = useState(false);
   const [selectedSimilar, setSelectedSimilar] = useState<SimilarTitle | null>(null);
+  const [selectedActorName, setSelectedActorName] = useState<string | null>(null);
 
   const shouldFetchProviders = isOpen && !!imdbId && (!initialProviders || initialProviders.length === 0);
   const { data: providersData, isLoading: isLoadingProviders, isError: isErrorProviders } = useGetStreamingProviders(
@@ -292,14 +294,12 @@ export function ProviderModal({
               </h3>
               <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {details.cast.map((actor, i) => (
-                  <a
+                  <button
                     key={`${actor.name}-${i}`}
-                    href={`https://www.themoviedb.org/search/person?query=${encodeURIComponent(actor.name)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    onClick={() => setSelectedActorName(actor.name)}
                     className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16 group cursor-pointer"
                   >
-                    <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 shadow-lg bg-white/5 group-hover:border-white/30 group-hover:scale-105 transition-all duration-200">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 shadow-lg bg-white/5 group-hover:border-primary/50 group-hover:scale-105 transition-all duration-200">
                       {actor.photo ? (
                         <img src={actor.photo} alt={actor.name} className="w-full h-full object-cover" />
                       ) : (
@@ -312,7 +312,7 @@ export function ProviderModal({
                       <p className="text-[10px] font-semibold text-white/75 group-hover:text-white leading-tight line-clamp-2 transition-colors">{actor.name}</p>
                       <p className="text-[9px] text-white/30 leading-tight line-clamp-1 mt-0.5">{actor.character}</p>
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -411,6 +411,15 @@ export function ProviderModal({
     </Dialog>
 
     {nestedSimilarModal}
+
+    {selectedActorName && (
+      <ActorModal
+        isOpen={!!selectedActorName}
+        onClose={() => setSelectedActorName(null)}
+        actorName={selectedActorName}
+        country={country}
+      />
+    )}
     </>
   );
 }

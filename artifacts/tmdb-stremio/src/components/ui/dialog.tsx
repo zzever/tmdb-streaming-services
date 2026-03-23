@@ -22,7 +22,6 @@ export function Dialog({ isOpen, onClose, children, className }: DialogProps) {
     };
   }, [isOpen]);
 
-  // Handle escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -48,18 +47,24 @@ export function Dialog({ isOpen, onClose, children, className }: DialogProps) {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={cn(
-              "relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-border shadow-2xl shadow-black scrollbar-hide",
+              "relative w-full max-w-4xl max-h-[90vh] rounded-2xl bg-card border border-border shadow-2xl shadow-black flex flex-col",
               className
             )}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Close button — outside the scrollable area so it's always visible */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-primary hover:text-white transition-colors"
+              className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/60 text-white/70 hover:bg-primary hover:text-white transition-colors backdrop-blur-sm border border-white/10"
+              aria-label="Cerrar"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
-            {children}
+
+            {/* Scrollable content */}
+            <div className="overflow-y-auto flex-1 scrollbar-hide rounded-2xl">
+              {children}
+            </div>
           </motion.div>
         </div>
       )}

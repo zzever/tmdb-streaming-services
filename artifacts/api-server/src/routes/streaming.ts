@@ -309,4 +309,88 @@ router.get("/streaming/details", async (req, res) => {
   }
 });
 
+router.get("/streaming/releases", async (req, res) => {
+  const type = String(req.query.type ?? "movie") as "movie" | "series";
+  const country = String(req.query.country ?? "ES");
+  const mode = String(req.query.mode ?? "upcoming");
+
+  try {
+    let endpoint = "";
+    if (type === "movie") {
+      endpoint = mode === "now_playing" ? "/movie/now_playing" : "/movie/upcoming";
+    } else {
+      endpoint = mode === "airing_today" ? "/tv/airing_today" : "/tv/on_the_air";
+    }
+
+    const raw = await tmdbFetch<{ results?: any[]; total_pages?: number }>(endpoint, {
+      region: country,
+      page: "1",
+    });
+
+    const results = (raw.results ?? []).slice(0, 24).map((r: any) => ({
+      tmdbId: r.id,
+      title: r.title || r.name || "",
+      poster: r.poster_path ? `https://image.tmdb.org/t/p/w342${r.poster_path}` : null,
+      backdrop: r.backdrop_path ? `https://image.tmdb.org/t/p/w780${r.backdrop_path}` : null,
+      rating: r.vote_average ?? null,
+      year: r.release_date ? parseInt(r.release_date.slice(0, 4), 10) : (r.first_air_date ? parseInt(r.first_air_date.slice(0, 4), 10) : null),
+      releaseDate: r.release_date || r.first_air_date || null,
+      overview: r.overview || null,
+      genres: mapGenres(r.genre_ids),
+      type: type === "series" ? "series" : "movie",
+    }));
+
+    res.json({ results });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching releases");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch releases" });
+  }
+});
+
+router.get("/streaming/person", async (req, res) => {
+  const name = String(req.query.name ?? "");
+  if (!name.trim()) {
+    res.status(400).json({ error: "Bad Request", message: "name is required" });
+    return;
+  }
+
+  try {
+    // Search for the person
+    const searchData = await tmdbFetch<{ results?: any[] }>("/search/person", { query: name });
+    const person = searchData.results?.[0];
+    if (!person) {
+      res.json({ name, credits: [] });
+      return;
+    }
+
+    // Fetch combined credits
+    const credits = await tmdbFetch<{ cast?: any[] }>(`/person/${person.id}/combined_credits`);
+    const cast = (credits.cast ?? [])
+      .filter((c: any) => c.media_type === "movie" || c.media_type === "tv")
+      .filter((c: any) => c.vote_count > 20 && (c.title || c.name))
+      .sort((a: any, b: any) => (b.vote_average ?? 0) - (a.vote_average ?? 0))
+      .slice(0, 20)
+      .map((c: any) => ({
+        tmdbId: c.id,
+        title: c.title || c.name || "",
+        poster: c.poster_path ? `https://image.tmdb.org/t/p/w342${c.poster_path}` : null,
+        rating: c.vote_average ?? null,
+        year: c.release_date ? parseInt(c.release_date.slice(0, 4), 10) : (c.first_air_date ? parseInt(c.first_air_date.slice(0, 4), 10) : null),
+        genres: mapGenres(c.genre_ids),
+        character: c.character || null,
+        type: c.media_type === "tv" ? "series" : "movie",
+      }));
+
+    res.json({
+      name: person.name,
+      photo: person.profile_path ? `https://image.tmdb.org/t/p/w185${person.profile_path}` : null,
+      credits: cast,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching person credits");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch person data" });
+  }
+});
+
 export default router;
+
