@@ -119,7 +119,7 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
         thumbnail: p.logo ?? undefined,
         url: directUrl,
         behaviorHints: {
-          notWebReady: false,
+          notWebReady: true,
           externalUrl: directUrl,
           bingeGroup: `${p.type}-${p.name}`,
         },
