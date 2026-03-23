@@ -58,13 +58,13 @@ export async function findTmdbId(imdbId: string, type: 'movie' | 'series'): Prom
   }
 }
 
-export async function getTmdbTitle(tmdbId: number, type: 'movie' | 'series'): Promise<string> {
+export async function getTmdbTitle(tmdbId: number, type: 'movie' | 'series', language = 'en-US'): Promise<string> {
   if (type === 'series') {
-    const data = await tmdbFetch<{ name?: string; title?: string }>(`/tv/${tmdbId}`);
-    return data.name || data.title || '';
+    const data = await tmdbFetch<{ name?: string; title?: string; original_name?: string }>(`/tv/${tmdbId}`, { language });
+    return data.name || data.original_name || data.title || '';
   } else {
-    const data = await tmdbFetch<{ title?: string; name?: string }>(`/movie/${tmdbId}`);
-    return data.title || data.name || '';
+    const data = await tmdbFetch<{ title?: string; name?: string; original_title?: string }>(`/movie/${tmdbId}`, { language });
+    return data.title || data.original_title || data.name || '';
   }
 }
 

@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { findTmdbId, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear } from "../lib/tmdb.js";
+import { findTmdbId, getTmdbTitle, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear } from "../lib/tmdb.js";
+import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
 
@@ -55,6 +56,8 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
 
   const mediaType: "movie" | "series" = type === "series" ? "series" : "movie";
 
+  const COUNTRY = 'ES';
+
   try {
     const tmdbId = await findTmdbId(imdbId, mediaType);
     if (!tmdbId) {
@@ -62,13 +65,34 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       return;
     }
 
-    const providersResult = await getWatchProviders(tmdbId, mediaType);
+    const [providersResult, title] = await Promise.all([
+      getWatchProviders(tmdbId, mediaType, COUNTRY),
+      getTmdbTitle(tmdbId, mediaType),
+    ]);
+
+    const jwOffers = title
+      ? await getJWDirectOffers(tmdbId, mediaType, COUNTRY, title)
+      : [];
+
     if (!providersResult) {
       res.json({ streams: [] });
       return;
     }
 
-    const mapped = mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType);
+    const mapped = mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, COUNTRY);
+
+    // Build a lookup map: providerName + monetizationType -> direct URL from JustWatch
+    const jwUrlMap = new Map<string, string>();
+    for (const offer of jwOffers) {
+      const key = `${offer.providerName}::${offer.monetizationType}`;
+      if (!jwUrlMap.has(key)) {
+        jwUrlMap.set(key, offer.directUrl);
+      }
+      // Also map by name only (without type) as fallback
+      if (!jwUrlMap.has(offer.providerName)) {
+        jwUrlMap.set(offer.providerName, offer.directUrl);
+      }
+    }
 
     // Sort by type priority
     const sorted = [...mapped].sort(
@@ -77,14 +101,19 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
 
     const streams = sorted.map((p) => {
       const meta = TYPE_META[p.type] ?? { emoji: "▶️", label: p.type };
+      const directUrl =
+        jwUrlMap.get(`${p.name}::${p.type}`) ??
+        jwUrlMap.get(p.name) ??
+        p.watchUrl;
+
       return {
         name: `🇪🇸 ${p.name}`,
         title: `${meta.emoji} ${meta.label}\nVer en ${p.name}`,
         thumbnail: p.logo ?? undefined,
-        url: p.watchUrl,
+        url: directUrl,
         behaviorHints: {
           notWebReady: true,
-          externalUrl: p.watchUrl,
+          externalUrl: directUrl,
           bingeGroup: `${p.type}-${p.name}`,
         },
       };
