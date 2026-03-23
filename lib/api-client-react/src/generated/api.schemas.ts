@@ -108,6 +108,9 @@ export interface TitleDetails {
   productionCountries: string[];
   numberOfSeasons: number | null;
   voteCount: number | null;
+  faRating: number | null;
+  faUrl: string | null;
+  faVotes: number | null;
 }
 
 export type GetStreamingProvidersParams = {

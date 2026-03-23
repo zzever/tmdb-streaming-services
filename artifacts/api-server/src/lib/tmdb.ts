@@ -297,6 +297,53 @@ export interface RichDetails {
   productionCountries: string[];
   numberOfSeasons: number | null;
   voteCount: number | null;
+  faRating: number | null;
+  faUrl: string | null;
+  faVotes: number | null;
+}
+
+async function fetchFilmAffinityRating(
+  title: string,
+  year: number | null
+): Promise<{ rating: number | null; url: string | null; votes: number | null }> {
+  try {
+    const query = encodeURIComponent(`${title}${year ? ` ${year}` : ''}`);
+    const searchUrl = `https://www.filmaffinity.com/es/advsearch.php?stext=${query}&stype%5B%5D=title&stype%5B%5D=director&stype%5B%5D=cast&stype%5B%5D=script&stype%5B%5D=photo`;
+    const res = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9',
+        'Cookie': 'cookiePolicy=accepted',
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return { rating: null, url: null, votes: null };
+    const html = await res.text();
+    const filmMatch = html.match(/href="(\/es\/film(\d+)\.html)"/);
+    if (!filmMatch) return { rating: null, url: searchUrl, votes: null };
+    const filmPath = filmMatch[1];
+    const filmUrl = `https://www.filmaffinity.com${filmPath}`;
+    const filmRes = await fetch(filmUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+        'Accept-Language': 'es-ES,es;q=0.9',
+        'Cookie': 'cookiePolicy=accepted',
+        'Referer': searchUrl,
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!filmRes.ok) return { rating: null, url: filmUrl, votes: null };
+    const filmHtml = await filmRes.text();
+    const ratingMatch = filmHtml.match(/class="[^"]*avgrat-box[^"]*"[^>]*>\s*([\d,]+)\s*</);
+    const votesMatch = filmHtml.match(/class="[^"]*numvotes-box[^"]*"[^>]*>\s*([\d.,]+)\s*</);
+    const rating = ratingMatch ? parseFloat(ratingMatch[1].replace(',', '.')) : null;
+    const votes = votesMatch ? parseInt(votesMatch[1].replace(/\D/g, ''), 10) : null;
+    return { rating: isNaN(rating as number) ? null : rating, url: filmUrl, votes: isNaN(votes as number) ? null : votes };
+  } catch {
+    return { rating: null, url: null, votes: null };
+  }
 }
 
 export async function getTitleRichDetails(
@@ -308,6 +355,11 @@ export async function getTitleRichDetails(
   const raw = await tmdbFetch<any>(path, {
     append_to_response: 'credits,similar,videos',
   });
+
+  const faTitle = raw.title || raw.name || '';
+  const faYearRaw = raw.release_date || raw.first_air_date || '';
+  const faYear = faYearRaw ? parseInt(faYearRaw.slice(0, 4), 10) : null;
+  const faData = await fetchFilmAffinityRating(faTitle, faYear);
 
   // Director / creator
   const crew: any[] = raw.credits?.crew ?? [];
@@ -369,5 +421,8 @@ export async function getTitleRichDetails(
     productionCountries: (raw.production_countries ?? []).map((c: any) => c.name),
     numberOfSeasons: raw.number_of_seasons ?? null,
     voteCount: raw.vote_count ?? null,
+    faRating: faData.rating,
+    faUrl: faData.url,
+    faVotes: faData.votes,
   };
 }
