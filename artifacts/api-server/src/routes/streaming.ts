@@ -14,6 +14,7 @@ import {
   parseYear,
   posterUrl,
 } from "../lib/tmdb.js";
+import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
 
@@ -42,6 +43,23 @@ router.get("/streaming/providers", async (req, res) => {
     const mapped = providersResult
       ? mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, country)
       : [];
+
+    // Enrich each provider's watchUrl with a direct platform link from JustWatch
+    if (mapped.length > 0 && title) {
+      const jwOffers = await getJWDirectOffers(tmdbId, mediaType, country ?? 'ES', title);
+      if (jwOffers.length > 0) {
+        const jwUrlMap = new Map<string, string>();
+        for (const offer of jwOffers) {
+          const key = `${offer.providerName}::${offer.monetizationType}`;
+          if (!jwUrlMap.has(key)) jwUrlMap.set(key, offer.directUrl);
+          if (!jwUrlMap.has(offer.providerName)) jwUrlMap.set(offer.providerName, offer.directUrl);
+        }
+        for (const p of mapped) {
+          const directUrl = jwUrlMap.get(`${p.name}::${p.type}`) ?? jwUrlMap.get(p.name);
+          if (directUrl) p.watchUrl = directUrl;
+        }
+      }
+    }
 
     res.json({
       imdbId,

@@ -66,7 +66,7 @@ function ProviderChip({ provider }: { provider: StreamingProvider }) {
 
   return (
     <motion.a
-      href={provider.tmdbUrl}
+      href={provider.watchUrl}
       target="_blank"
       rel="noopener noreferrer"
       whileHover={{ scale: 1.05, y: -2 }}
