@@ -5,6 +5,17 @@ import { MonitorPlay, Star, Heart } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useWatchlist } from "@/context/WatchlistContext";
 
+interface DisplayProvider {
+  providerId: number;
+  name: string;
+  logo?: string | null;
+  type: string;
+  tmdbUrl?: string;
+  watchUrl?: string;
+  color?: string;
+  short?: string;
+}
+
 interface MediaCardProps {
   media: PopularTitle | SearchResult | any;
   onClick: (media: any) => void;
@@ -19,7 +30,7 @@ export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
   const [backdropLoaded, setBackdropLoaded] = useState(false);
 
   const isPopularTitle = "providers" in media;
-  const providers = isPopularTitle ? (media as PopularTitle).providers ?? [] : [];
+  const providers: DisplayProvider[] = isPopularTitle ? (media as PopularTitle).providers ?? [] : [];
   const displayProviders = providers
     .filter((p) => p.type === "flatrate" || p.type === "free" || p.type === "ads")
     .slice(0, 3);
@@ -171,10 +182,13 @@ export function MediaCard({ media, onClick, onGenreClick }: MediaCardProps) {
               ) : (
                 <div
                   key={`${p.providerId}-${i}`}
-                  className="w-7 h-7 rounded-lg border border-white/15 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+                  className="w-7 h-7 rounded-lg border border-white/15 flex items-center justify-center shadow-lg"
+                  style={{ background: p.color ?? "rgba(0,0,0,0.6)" }}
                   title={p.name}
                 >
-                  <span className="text-[8px] font-bold text-white">{p.name.slice(0, 3).toUpperCase()}</span>
+                  <span className="text-[9px] font-black text-white leading-none" style={{ letterSpacing: "-0.02em" }}>
+                    {p.short ?? p.name.slice(0, 3).toUpperCase()}
+                  </span>
                 </div>
               )
             )}

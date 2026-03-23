@@ -1137,7 +1137,7 @@ export default function Home() {
                             ? MOVISTAR_SERVICE
                             : undefined;
                     const enrichedItem = activeProviderSvc
-                      ? { ...item, providers: [{ providerId: activeProviderSvc.id, name: activeProviderSvc.name, logo: null, type: "flatrate" }] }
+                      ? { ...item, providers: [{ providerId: activeProviderSvc.id, name: activeProviderSvc.name, logo: null, color: activeProviderSvc.color, short: activeProviderSvc.short, type: "flatrate" }] }
                       : item;
                     return (
                       <motion.div key={`${item.tmdbId ?? item.id}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
