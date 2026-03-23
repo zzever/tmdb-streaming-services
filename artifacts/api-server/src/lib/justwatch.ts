@@ -81,6 +81,23 @@ async function findJWNodeId(
   return match?.node.id ?? null;
 }
 
+// Fix provider URLs to use the canonical domain and remove tracking params
+function fixProviderUrl(url: string): string {
+  try {
+    const u = new URL(url);
+
+    // Movistar+: wl.movistarplus.es/ficha/?id=XXX → ver.movistarplus.es/ficha/?id=XXX
+    if (u.hostname === 'wl.movistarplus.es') {
+      const id = u.searchParams.get('id');
+      if (id) return `https://ver.movistarplus.es/ficha/?id=${id}`;
+    }
+
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 async function fetchOffersForNode(
   nodeId: string,
   type: 'movie' | 'series',
@@ -120,7 +137,7 @@ async function fetchOffersForNode(
     .map((o) => ({
       providerName: o.package.clearName,
       monetizationType: o.monetizationType.toLowerCase(),
-      directUrl: o.standardWebURL,
+      directUrl: fixProviderUrl(o.standardWebURL),
       presentationType: o.presentationType ?? undefined,
     }));
 }
