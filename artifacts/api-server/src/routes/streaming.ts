@@ -67,16 +67,26 @@ router.get("/streaming/search", async (req, res) => {
   try {
     const { results, totalResults } = await searchTmdb(query, mediaType);
 
-    const mapped = results.map((r) => ({
-      imdbId: null,
-      tmdbId: r.id,
-      title: r.title || r.name || "",
-      type: r.media_type === "tv" ? "series" : "movie",
-      year: parseYear(r),
-      poster: posterUrl(r.poster_path),
-      overview: r.overview || null,
-      rating: r.vote_average ?? null,
-    }));
+    const mapped = results.map((r) => {
+      // When mediaType is set, the endpoint is type-specific and doesn't return media_type.
+      // Fall back to the requested type; for multi-search results, use media_type.
+      const resolvedType =
+        mediaType === "series" ? "series"
+        : mediaType === "movie" ? "movie"
+        : r.media_type === "tv" ? "series"
+        : "movie";
+
+      return {
+        imdbId: null,
+        tmdbId: r.id,
+        title: r.title || r.name || "",
+        type: resolvedType,
+        year: parseYear(r),
+        poster: posterUrl(r.poster_path),
+        overview: r.overview || null,
+        rating: r.vote_average ?? null,
+      };
+    });
 
     res.json({ results: mapped, totalResults });
   } catch (err) {
