@@ -28,6 +28,45 @@ import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
 
+// ── Movistar+ provider injection ─────────────────────────────────────────────
+const MPLUS_LOGO = "https://image.tmdb.org/t/p/w185/f6TRLB3H4jDpFEZ0z2KWSSvu1SB.jpg";
+const ATRES_NAMES_WEB = ["atres player", "atresplayer", "atresmedia", "antena 3", "la sexta"];
+const PRIME_NAMES_WEB  = ["amazon prime video", "amazon video", "prime video"];
+
+function injectMovistarProviders(
+  providers: Array<{ name: string; logo?: string | null; type: string; providerId: number; watchUrl: string; tmdbUrl?: string }>,
+  title: string
+) {
+  const names = providers.map((p) => p.name.toLowerCase());
+  const hasMovistar = names.some((n) => n.includes("movistar"));
+  const hasAtres    = names.some((n) => ATRES_NAMES_WEB.some((k) => n.includes(k)));
+  const hasPrime    = names.some((n) => PRIME_NAMES_WEB.some((k) => n.includes(k)));
+
+  // Inject Movistar+ search when Atres or Prime is present but Movistar+ is not (direct VOD)
+  if ((hasAtres || hasPrime) && !hasMovistar) {
+    providers.push({
+      name: "Movistar+",
+      logo: MPLUS_LOGO,
+      type: "flatrate",
+      providerId: 149,
+      watchUrl: `https://ver.movistarplus.es/busqueda/?q=${encodeURIComponent(title)}`,
+    });
+  }
+
+  // Inject Movistar+ recordings (last 7 days) when Movistar+ is available or Atres channels are present
+  if (hasMovistar || hasAtres) {
+    providers.push({
+      name: "Movistar+ Grabaciones",
+      logo: MPLUS_LOGO,
+      type: "flatrate",
+      providerId: 149,
+      watchUrl: `https://ver.movistarplus.es/grabaciones/busqueda/?q=${encodeURIComponent(title)}`,
+    });
+  }
+
+  return providers;
+}
+
 // Fetch providers by TMDB ID directly (used when imdbId is not available, e.g. discover results)
 router.get("/streaming/providers-by-tmdb", async (req, res) => {
   const tmdbId = Number(req.query.tmdbId);
@@ -67,6 +106,8 @@ router.get("/streaming/providers-by-tmdb", async (req, res) => {
         }
       }
     }
+
+    if (title) injectMovistarProviders(mapped, title);
 
     res.json({
       imdbId: imdbId ?? null,
@@ -123,6 +164,8 @@ router.get("/streaming/providers", async (req, res) => {
         }
       }
     }
+
+    if (title) injectMovistarProviders(mapped, title);
 
     res.json({
       imdbId,
