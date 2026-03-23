@@ -93,7 +93,11 @@ React + Vite frontend. Preview path: `/` (root).
 - `ANIME_GENRE_ID = "16"`, `ANIME_LANG = "ja"`
 - `PROGRAMA_GENRE_IDS = "99|10764|10767"`
 - `tmdbType` — maps `ContentType` to TMDB `"movie"|"series"`
-- Genre chips hidden when `isSpecialBrowse` (anime or programa tabs)
+- **Multi-select provider filter**: `selectedProviders: number[]`, `toggleProvider`, `clearProviders`; pipe-joined as `withProvider` for TMDB discover
+- **useWatchProviders hook**: fetches country-aware provider list (id, name, logo URL) from `/api/streaming/watch-providers`
+- **StreamingServiceChips**: multi-select, TMDB logo images, shown on all browse tabs (not just movie/series)
+- `PROVIDER_STYLES` — brand color/bg/short lookup for tinting (replaces `STREAMING_SERVICES` array)
+- MediaCard heart/eye buttons always visible at 30% opacity; full opacity when active or on hover
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
@@ -103,7 +107,8 @@ Express 5 API server. Entry: `src/index.ts`. App: `src/app.ts`. Routes at `/api`
 - `GET /api/streaming/providers?imdbId&type&country` — watch providers + JustWatch direct URLs
 - `GET /api/streaming/search?query&type` — TMDB multi/movie/tv search
 - `GET /api/streaming/popular?type&country&page` — popular titles for country
-- `GET /api/streaming/discover?type&country&genreId&year&originLanguage&sortBy&withoutGenres&withProvider&page` — TMDB discover with filters; `withProvider` = TMDB provider ID (e.g. 8=Netflix, 119=Prime)
+- `GET /api/streaming/discover?type&country&genreId&year&originLanguage&sortBy&withoutGenres&withProvider&page` — TMDB discover with filters; `withProvider` = TMDB provider ID or pipe-separated IDs (e.g. `8|119` for Netflix+Prime)
+- `GET /api/streaming/watch-providers?country&type` — TMDB provider list for country with logo URLs, sorted by displayPriority
 - `GET /api/streaming/kitsu?q=` — Kitsu.io anime metadata proxy; returns title, poster, episodes, rating, status, kitsuUrl
 - `GET /api/streaming/releases?type&country&mode&releaseType` — upcoming/recent releases; `releaseType`: `theater|streaming|any`
 - `GET /api/streaming/random?type&country` — random popular title
@@ -117,8 +122,10 @@ Express 5 API server. Entry: `src/index.ts`. App: `src/app.ts`. Routes at `/api`
 **Key lib files:**
 - `src/lib/tmdb.ts` — TMDB API wrapper: `tmdbFetch`, `getPopular`, `searchTmdb`, `getWatchProviders`, `mapProviders`, `getTitleRichDetails`, `findTmdbId`, `getImdbId`, `mapGenres`, `posterUrl`, `backdropUrl`
 - `src/lib/justwatch.ts` — JustWatch GraphQL client: `getJWDirectOffers` returning direct platform URLs
+- `src/lib/live-channels.ts` — TDT channels (TV + radio): fetches `tdtchannels.com/lists/tv.json` + radio M3U dynamically; 6h TTL cache; maps Spanish ambits to English group categories
+- `src/lib/epg.ts` — EPG loader: plain XML sources + gzip (TDT `TV.xml.gz` via `gunzipSync`); `ensureEpg()`, `getCurrentAndNext(tvgId)`, `getEpgCacheSize()`
 
-## Stremio Addon (v2.11.0)
+## Stremio Addon (v2.12.0)
 
 Manifest ID: `community.tmdb-streaming-es`
 

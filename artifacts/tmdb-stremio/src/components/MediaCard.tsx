@@ -256,30 +256,30 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
         {/* Top gradient for badges */}
         <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none z-10" />
 
-        {/* Watchlist heart button */}
+        {/* Watchlist heart button — always visible */}
         {media.id && (
           <button
             onClick={handleToggleWatchlist}
-            className={`absolute bottom-2 right-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+            className={`absolute bottom-2 right-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 border backdrop-blur-sm hover:scale-110 ${
               inList
                 ? "opacity-100 bg-red-500/80 border-red-400/50"
-                : "opacity-0 group-hover:opacity-100 bg-black/60 border-white/10"
-            } border backdrop-blur-sm hover:scale-110`}
+                : "opacity-30 group-hover:opacity-100 bg-black/60 border-white/10"
+            }`}
             title={inList ? "Quitar de favoritos" : "Añadir a favoritos"}
           >
             <Heart className={`w-3.5 h-3.5 ${inList ? "fill-white text-white" : "text-white/70"}`} />
           </button>
         )}
 
-        {/* Visto (eye) button */}
+        {/* Visto (eye) button — always visible */}
         {media.id && (
           <button
             onClick={handleToggleWatched}
-            className={`absolute bottom-2 left-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+            className={`absolute bottom-2 left-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 border backdrop-blur-sm hover:scale-110 ${
               inWatched
                 ? "opacity-100 bg-emerald-500/80 border-emerald-400/50"
-                : "opacity-0 group-hover:opacity-100 bg-black/60 border-white/10"
-            } border backdrop-blur-sm hover:scale-110`}
+                : "opacity-30 group-hover:opacity-100 bg-black/60 border-white/10"
+            }`}
             title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
           >
             <Eye className={`w-3.5 h-3.5 ${inWatched ? "text-white" : "text-white/70"}`} />

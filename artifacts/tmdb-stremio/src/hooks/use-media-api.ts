@@ -101,7 +101,7 @@ export function useDiscover(
     originLanguage?: string | null;
     alwaysEnabled?: boolean;
     sortBy?: string | null;
-    withProvider?: number | null;
+    withProvider?: number | string | null;
   },
   options?: { query?: { enabled?: boolean } }
 ) {
@@ -211,6 +211,21 @@ export interface PersonData {
   photo: string | null;
   credits: PersonCredit[];
   role: "actor" | "director";
+}
+
+// ── Watch providers by country (for streaming service chips) ──
+export interface WatchProvider { id: number; name: string; logo: string | null; displayPriority: number; }
+
+export function useWatchProviders(country: string, type: "movie" | "series" = "movie") {
+  return useQuery({
+    queryKey: ["watch-providers", country, type],
+    queryFn: async () => {
+      const res = await fetch(`/api/streaming/watch-providers?country=${country}&type=${type}`);
+      if (!res.ok) throw new Error("Failed to fetch watch providers");
+      return res.json() as Promise<{ providers: WatchProvider[]; country: string }>;
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+  });
 }
 
 // ── Live TV channels ──

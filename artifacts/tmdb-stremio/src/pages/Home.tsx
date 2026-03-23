@@ -4,11 +4,13 @@ import {
   useSearchTitles,
   useGetReleases,
   useDiscover,
+  useWatchProviders,
   fetchRandomTitle,
   MOVIE_GENRES,
   SERIES_GENRES,
   type ReleaseTitle,
   type DiscoverTitle,
+  type WatchProvider,
 } from "@/hooks/use-media-api";
 import { useWatchlist, type WatchlistItem } from "@/context/WatchlistContext";
 import { useWatched, type WatchedItem } from "@/context/WatchedContext";
@@ -376,62 +378,65 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: "vote_average.asc",             label: "Peor nota" },
 ];
 
-// ── Streaming service providers (TMDB IDs for Spain) ────────────
-interface StreamingService { id: number; name: string; short: string; color: string; bg: string }
-
-const CRUNCHYROLL_SERVICE: StreamingService = { id: 283, name: "Crunchyroll", short: "CR", color: "#f47521", bg: "rgba(244,117,33,0.13)" };
-const MOVISTAR_SERVICE: StreamingService    = { id: 149, name: "Movistar+",   short: "M+", color: "#00adef", bg: "rgba(0,173,239,0.12)" };
-
-const STREAMING_SERVICES: StreamingService[] = [
-  { id: 8,    name: "Netflix",      short: "N",  color: "#e50914", bg: "rgba(229,9,20,0.15)" },
-  { id: 119,  name: "Prime",        short: "P",  color: "#00a8e1", bg: "rgba(0,168,225,0.13)" },
-  { id: 337,  name: "Disney+",      short: "D+", color: "#4f7ef8", bg: "rgba(79,126,248,0.13)" },
-  { id: 1899, name: "Max",          short: "M",  color: "#6b7ef8", bg: "rgba(107,126,248,0.13)" },
-  { id: 350,  name: "Apple TV+",    short: "Tv", color: "#a0a0a0", bg: "rgba(160,160,160,0.10)" },
-  { id: 63,   name: "Filmin",       short: "Fi", color: "#ff5c5c", bg: "rgba(255,92,92,0.12)" },
-  { id: 149,  name: "Movistar+",    short: "M+", color: "#00adef", bg: "rgba(0,173,239,0.12)" },
-  { id: 35,   name: "Rakuten TV",   short: "R",  color: "#bf0000", bg: "rgba(191,0,0,0.13)" },
-  { id: 300,  name: "Pluto TV",     short: "Pl", color: "#ffd800", bg: "rgba(255,216,0,0.10)" },
-  { id: 576,  name: "Mitele",       short: "Mi", color: "#e30613", bg: "rgba(227,6,19,0.12)" },
-];
-
-interface ServiceChipsProps {
-  selected: number | null;
-  onSelect: (id: number | null) => void;
+// ── Provider style lookup (brand colors, for tinting/fallback) ──
+const PROVIDER_STYLES: Record<number, { color: string; bg: string; short: string }> = {
+  8:    { color: "#e50914", bg: "rgba(229,9,20,0.15)",     short: "N"  },
+  119:  { color: "#00a8e1", bg: "rgba(0,168,225,0.13)",    short: "P"  },
+  337:  { color: "#4f7ef8", bg: "rgba(79,126,248,0.13)",   short: "D+" },
+  1899: { color: "#6b7ef8", bg: "rgba(107,126,248,0.13)",  short: "M"  },
+  350:  { color: "#a0a0a0", bg: "rgba(160,160,160,0.10)",  short: "Tv" },
+  283:  { color: "#f47521", bg: "rgba(244,117,33,0.13)",   short: "CR" },
+  63:   { color: "#ff5c5c", bg: "rgba(255,92,92,0.12)",    short: "Fi" },
+  149:  { color: "#00adef", bg: "rgba(0,173,239,0.12)",    short: "M+" },
+  35:   { color: "#bf0000", bg: "rgba(191,0,0,0.13)",      short: "R"  },
+  300:  { color: "#ffd800", bg: "rgba(255,216,0,0.10)",    short: "Pl" },
+  576:  { color: "#e30613", bg: "rgba(227,6,19,0.12)",     short: "Mi" },
+};
+function getProvStyle(id: number) {
+  return PROVIDER_STYLES[id] ?? { color: "#6366f1", bg: "rgba(99,102,241,0.13)", short: "?" };
 }
 
-function StreamingServiceChips({ selected, onSelect }: ServiceChipsProps) {
+// ── Streaming service chips (multi-select, logo from TMDB API) ──
+interface ServiceChipsProps {
+  providers: WatchProvider[];
+  selected: number[];
+  onToggle: (id: number) => void;
+  onClear: () => void;
+}
+
+function StreamingServiceChips({ providers, selected, onToggle, onClear }: ServiceChipsProps) {
+  const noneSelected = selected.length === 0;
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-      {/* "All" button */}
       <button
-        onClick={() => onSelect(null)}
+        onClick={onClear}
         className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
-          selected === null
+          noneSelected
             ? "text-white border-white/20 bg-white/10"
             : "text-white/35 hover:text-white/65 border-white/[0.07] hover:border-white/15 bg-white/[0.03] hover:bg-white/[0.06]"
         }`}
       >
         Todas
       </button>
-      {STREAMING_SERVICES.map((svc) => {
-        const isSelected = selected === svc.id;
+      {providers.map((svc) => {
+        const isSelected = selected.includes(svc.id);
+        const style = getProvStyle(svc.id);
         return (
           <button
             key={svc.id}
-            onClick={() => onSelect(isSelected ? null : svc.id)}
+            onClick={() => onToggle(svc.id)}
             title={svc.name}
-            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
             style={{
               color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
-              background: isSelected ? svc.bg : "rgba(255,255,255,0.03)",
-              borderColor: isSelected ? svc.color + "60" : "rgba(255,255,255,0.07)",
+              background: isSelected ? style.bg : "rgba(255,255,255,0.03)",
+              borderColor: isSelected ? style.color + "60" : "rgba(255,255,255,0.07)",
             }}
             onMouseEnter={(e) => {
               if (!isSelected) {
-                (e.currentTarget as HTMLButtonElement).style.background = svc.bg;
+                (e.currentTarget as HTMLButtonElement).style.background = style.bg;
                 (e.currentTarget as HTMLButtonElement).style.color = "#fff";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = svc.color + "40";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = style.color + "40";
               }
             }}
             onMouseLeave={(e) => {
@@ -442,13 +447,10 @@ function StreamingServiceChips({ selected, onSelect }: ServiceChipsProps) {
               }
             }}
           >
-            {/* Brand dot */}
-            <span
-              className="flex-shrink-0 w-4 h-4 rounded-md flex items-center justify-center text-[9px] font-black leading-none"
-              style={{ background: svc.color, color: "#fff" }}
-            >
-              {svc.short}
-            </span>
+            {svc.logo
+              ? <img src={svc.logo} alt={svc.name} className="flex-shrink-0 w-4 h-4 rounded object-cover" />
+              : <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-black leading-none" style={{ background: style.color, color: "#fff" }}>{style.short}</span>
+            }
             {svc.name}
           </button>
         );
@@ -765,9 +767,7 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [accumulatedResults, setAccumulatedResults] = useState<any[]>([]);
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
-  const [animeProvider, setAnimeProvider] = useState<number | null>(null);
-  const [programaProvider, setProgramaProvider] = useState<number | null>(null);
+  const [selectedProviders, setSelectedProviders] = useState<number[]>([]);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const [compactMode, setCompactMode] = useState<"grid" | "list">("grid");
   const { locale } = useLocale();
@@ -777,22 +777,34 @@ export default function Home() {
 
   const [selectedMedia, setSelectedMedia] = useState<AnyMedia | null>(null);
 
+  // Country-aware watch providers from TMDB
+  const { data: watchProvidersData } = useWatchProviders(locale.code, "movie");
+  const countryProviders: WatchProvider[] = watchProvidersData?.providers ?? [];
+
+  const toggleProvider = useCallback((id: number) => {
+    setSelectedProviders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
+  const clearProviders = useCallback(() => setSelectedProviders([]), []);
+
   // Map ContentType to TMDB type
   const tmdbType: "movie" | "series" =
     activeContentType === "movie" || activeContentType === "musica" ? "movie" : "series";
 
   const isSearching = debouncedQuery.length > 2;
-  const isFiltering = !isSearching && (selectedGenreId !== null || selectedProvider !== null);
+  const isFiltering = !isSearching && (selectedGenreId !== null || selectedProviders.length > 0);
   const isAnime = activeContentType === "anime";
   const isPrograma = activeContentType === "programa";
   const isMusica = activeContentType === "musica";
   const isSpecialBrowse = isAnime || isPrograma || isMusica;
 
+  // Build pipe-joined provider string for TMDB discover queries
+  const withProviderStr = selectedProviders.length > 0 ? selectedProviders.join("|") : null;
+
   // Reset pagination when filters change
   useEffect(() => {
     setPage(1);
     setAccumulatedResults([]);
-  }, [activeContentType, selectedGenreId, selectedProvider, animeProvider, programaProvider, debouncedQuery, sortBy, locale.code]);
+  }, [activeContentType, selectedGenreId, selectedProviders.join(","), debouncedQuery, sortBy, locale.code]);
 
   // Popular (movie/series only, not special tabs)
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
@@ -800,21 +812,21 @@ export default function Home() {
     { query: { enabled: !isSearching && !isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
-  // Genre filter for movie/series (with sort)
+  // Genre/provider filter for movie/series (with sort)
   const { data: discoverData, isLoading: isLoadingDiscover } = useDiscover(
-    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page, sortBy: isFiltering ? sortBy : undefined, withProvider: selectedProvider },
+    { type: tmdbType, country: locale.code, genreId: selectedGenreId, page, sortBy: isFiltering ? sortBy : undefined, withProvider: withProviderStr },
     { query: { enabled: isFiltering && !isSpecialBrowse && viewMode === "browse" } }
   );
 
-  // Anime discover — always fetches when on anime tab (with optional Crunchyroll filter)
+  // Anime discover — always fetches when on anime tab (with optional provider filter)
   const { data: animeData, isLoading: isLoadingAnime } = useDiscover(
-    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page, alwaysEnabled: true, sortBy: sortBy, withProvider: animeProvider },
+    { type: "series", country: locale.code, genreIds: ANIME_GENRE_ID, originLanguage: ANIME_LANG, page, alwaysEnabled: true, sortBy: sortBy, withProvider: withProviderStr },
     { query: { enabled: isAnime && !isSearching && viewMode === "browse" } }
   );
 
-  // Programa discover — always fetches when on programa tab (with optional Movistar+ filter)
+  // Programa discover — always fetches when on programa tab (with optional provider filter)
   const { data: programaData, isLoading: isLoadingPrograma } = useDiscover(
-    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page, alwaysEnabled: true, sortBy: sortBy, withProvider: programaProvider },
+    { type: "series", country: locale.code, genreIds: PROGRAMA_GENRE_IDS, originLanguage: "es", page, alwaysEnabled: true, sortBy: sortBy, withProvider: withProviderStr },
     { query: { enabled: isPrograma && !isSearching && viewMode === "browse" } }
   );
 
@@ -872,9 +884,7 @@ export default function Home() {
   const handleTypeChange = useCallback((ct: ContentType) => {
     setActiveContentType(ct);
     setSelectedGenreId(null);
-    setSelectedProvider(null);
-    setAnimeProvider(null);
-    setProgramaProvider(null);
+    setSelectedProviders([]);
   }, []);
 
   // Random button — fetches based on the active category
@@ -902,9 +912,9 @@ export default function Home() {
   })();
 
   const platformTintColor = useMemo(() => {
-    if (selectedProvider === null) return null;
-    return STREAMING_SERVICES.find((s) => s.id === selectedProvider)?.color ?? null;
-  }, [selectedProvider]);
+    if (selectedProviders.length === 0) return null;
+    return getProvStyle(selectedProviders[0]).color;
+  }, [selectedProviders]);
 
   return (
     <div className="min-h-screen relative" style={{ background: "#080912" }}>
@@ -1070,9 +1080,9 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* ── Streaming service selector (movie/series only, no search) ── */}
+        {/* ── Streaming service selector (all browse tabs) ── */}
         <AnimatePresence>
-          {viewMode === "browse" && !isSearching && !isSpecialBrowse && (
+          {viewMode === "browse" && !isSearching && countryProviders.length > 0 && (
             <motion.div
               key="service-chips"
               initial={{ opacity: 0, height: 0 }}
@@ -1080,149 +1090,21 @@ export default function Home() {
               exit={{ opacity: 0, height: 0 }}
               className="mb-5 overflow-hidden"
             >
-              <StreamingServiceChips selected={selectedProvider} onSelect={setSelectedProvider} />
-              {selectedProvider !== null && (
+              <StreamingServiceChips
+                providers={countryProviders}
+                selected={selectedProviders}
+                onToggle={toggleProvider}
+                onClear={clearProviders}
+              />
+              {selectedProviders.length > 0 && (
                 <p className="text-xs text-white/30 mt-2">
-                  Filtrando por <span className="text-white/55 font-semibold">
-                    {STREAMING_SERVICES.find((s) => s.id === selectedProvider)?.name ?? "plataforma"}
-                  </span>{activeGenreName ? ` · ${activeGenreName}` : ""}
-                </p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Crunchyroll filter for Anime tab ── */}
-        <AnimatePresence>
-          {viewMode === "browse" && isAnime && !isSearching && (
-            <motion.div
-              key="anime-provider-chip"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-5 overflow-hidden"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold shrink-0">Plataforma</span>
-                <button
-                  onClick={() => setAnimeProvider(null)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
-                    animeProvider === null
-                      ? "text-white border-white/20 bg-white/10"
-                      : "text-white/35 hover:text-white/65 border-white/[0.07] hover:border-white/15 bg-white/[0.03]"
-                  }`}
-                >
-                  Todas
-                </button>
-                {(() => {
-                  const svc = CRUNCHYROLL_SERVICE;
-                  const isSelected = animeProvider === svc.id;
-                  return (
-                    <button
-                      key={svc.id}
-                      onClick={() => setAnimeProvider(isSelected ? null : svc.id)}
-                      title={svc.name}
-                      className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
-                      style={{
-                        color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
-                        background: isSelected ? svc.bg : "rgba(255,255,255,0.03)",
-                        borderColor: isSelected ? svc.color + "60" : "rgba(255,255,255,0.07)",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          (e.currentTarget as HTMLButtonElement).style.background = svc.bg;
-                          (e.currentTarget as HTMLButtonElement).style.color = "#fff";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
-                          (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
-                        }
-                      }}
-                    >
-                      <span
-                        className="flex items-center justify-center rounded text-[9px] font-black leading-none shrink-0"
-                        style={{ width: 22, height: 22, background: svc.color, color: "#fff", letterSpacing: "-0.02em" }}
-                      >
-                        {svc.short}
-                      </span>
-                      {svc.name}
-                    </button>
-                  );
-                })()}
-              </div>
-              {animeProvider !== null && (
-                <p className="text-xs text-white/30 mt-2">
-                  Mostrando anime disponible en <span className="text-white/55 font-semibold">Crunchyroll</span> en España
-                </p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Movistar+ filter for Programas tab ── */}
-        <AnimatePresence>
-          {viewMode === "browse" && isPrograma && !isSearching && (
-            <motion.div
-              key="programa-provider-chip"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-5 overflow-hidden"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold shrink-0">Plataforma</span>
-                <button
-                  onClick={() => setProgramaProvider(null)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap ${
-                    programaProvider === null
-                      ? "text-white border-white/20 bg-white/10"
-                      : "text-white/35 hover:text-white/65 border-white/[0.07] hover:border-white/15 bg-white/[0.03]"
-                  }`}
-                >
-                  Todas
-                </button>
-                {(() => {
-                  const svc = MOVISTAR_SERVICE;
-                  const isSelected = programaProvider === svc.id;
-                  return (
-                    <button
-                      onClick={() => setProgramaProvider(isSelected ? null : svc.id)}
-                      title={svc.name}
-                      className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 border whitespace-nowrap"
-                      style={{
-                        color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
-                        background: isSelected ? svc.bg : "rgba(255,255,255,0.03)",
-                        borderColor: isSelected ? svc.color + "60" : "rgba(255,255,255,0.07)",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          (e.currentTarget as HTMLButtonElement).style.background = svc.bg;
-                          (e.currentTarget as HTMLButtonElement).style.color = "#fff";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
-                          (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
-                        }
-                      }}
-                    >
-                      <span
-                        className="flex items-center justify-center rounded text-[9px] font-black leading-none shrink-0"
-                        style={{ width: 22, height: 22, background: svc.color, color: "#fff", letterSpacing: "-0.02em" }}
-                      >
-                        {svc.short}
-                      </span>
-                      {svc.name}
-                    </button>
-                  );
-                })()}
-              </div>
-              {programaProvider !== null && (
-                <p className="text-xs text-white/30 mt-2">
-                  Mostrando programas disponibles en <span className="text-white/55 font-semibold">Movistar+</span> en España
+                  Filtrando por{" "}
+                  <span className="text-white/55 font-semibold">
+                    {selectedProviders
+                      .map((id) => countryProviders.find((p) => p.id === id)?.name ?? id)
+                      .join(", ")}
+                  </span>
+                  {activeGenreName ? ` · ${activeGenreName}` : ""}
                 </p>
               )}
             </motion.div>
@@ -1295,17 +1177,11 @@ export default function Home() {
                   : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
                 }>
                   {displayedData.map((item, i) => {
-                    // Inject provider badge for discover results (no providers field)
-                    const activeProviderSvc =
-                      !('providers' in item) && selectedProvider !== null
-                        ? STREAMING_SERVICES.find((s) => s.id === selectedProvider)
-                        : !('providers' in item) && isAnime && animeProvider !== null
-                          ? CRUNCHYROLL_SERVICE
-                          : !('providers' in item) && isPrograma && programaProvider !== null
-                            ? MOVISTAR_SERVICE
-                            : undefined;
-                    const enrichedItem = activeProviderSvc
-                      ? { ...item, providers: [{ providerId: activeProviderSvc.id, name: activeProviderSvc.name, logo: null, color: activeProviderSvc.color, short: activeProviderSvc.short, type: "flatrate" }] }
+                    // Inject provider badge for discover results (no providers field) — only when exactly one provider selected
+                    const singleProviderId = !('providers' in item) && selectedProviders.length === 1 ? selectedProviders[0] : null;
+                    const singleProviderInfo = singleProviderId !== null ? countryProviders.find((p) => p.id === singleProviderId) : null;
+                    const enrichedItem = singleProviderInfo
+                      ? { ...item, providers: [{ providerId: singleProviderInfo.id, name: singleProviderInfo.name, logo: singleProviderInfo.logo, color: getProvStyle(singleProviderInfo.id).color, short: getProvStyle(singleProviderInfo.id).short, type: "flatrate" }] }
                       : item;
                     return (
                       <motion.div key={`${item.tmdbId ?? item.id}-${i}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}

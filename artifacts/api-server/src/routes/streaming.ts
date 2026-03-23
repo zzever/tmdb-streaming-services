@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
+import { getLiveChannels } from "../lib/live-channels.js";
 import { ensureEpg, getCurrentAndNext, getEpgCacheSize } from "../lib/epg.js";
 import {
   GetStreamingProvidersQueryParams,
@@ -672,9 +672,7 @@ router.get("/streaming/person", async (req, res) => {
   }
 });
 
-// ── Live TV channels ────────────────────────────────────────────
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const channelsData: any[] = JSON.parse(readFileSync(path.join(__dirname, "../data/channels.json"), "utf8"));
+// ── Live TV channels (dynamic from tdtchannels.com) ──────────────────────────
 
 const GROUP_LABELS: Record<string, string> = {
   General: "General", News: "Noticias", Sports: "Deportes", Music: "Música",
@@ -683,7 +681,7 @@ const GROUP_LABELS: Record<string, string> = {
   Comedy: "Comedia", Culture: "Cultura", Classic: "Clásica", Religious: "Religiosa",
   Family: "Familia", Lifestyle: "Estilo de vida", Business: "Economía",
   Education: "Educación", Weather: "Tiempo", Outdoor: "Naturaleza",
-  Legislative: "Parlamento",
+  Legislative: "Parlamento", Regional: "Regional", Radio: "Radio",
 };
 
 router.get("/streaming/epg", async (req, res) => {
@@ -700,33 +698,48 @@ router.get("/streaming/epg", async (req, res) => {
   res.json({ epg: result, channelsWithData: getEpgCacheSize() });
 });
 
-router.get("/streaming/live-channels", (req, res) => {
+router.get("/streaming/live-channels", async (req, res) => {
+  const all = await getLiveChannels();
   const group = req.query.group as string | undefined;
   const q = (req.query.q as string | undefined)?.toLowerCase().trim();
 
-  let channels: any[] = channelsData as any[];
+  let channels = all as any[];
+  if (group && group !== "all") channels = channels.filter((c: any) => c.groups.includes(group));
+  if (q) channels = channels.filter((c: any) => c.name.toLowerCase().includes(q));
 
-  if (group && group !== "all") {
-    channels = channels.filter((c: any) => c.groups.includes(group));
-  }
-
-  if (q) {
-    channels = channels.filter((c: any) => c.name.toLowerCase().includes(q));
-  }
-
-  // Build group index
   const groupCounts: Record<string, number> = {};
-  for (const ch of channelsData as any[]) {
-    for (const g of ch.groups) {
-      groupCounts[g] = (groupCounts[g] || 0) + 1;
-    }
+  for (const ch of all) {
+    for (const g of ch.groups) { groupCounts[g] = (groupCounts[g] || 0) + 1; }
   }
 
   const groups = Object.entries(groupCounts)
     .map(([id, count]) => ({ id, label: GROUP_LABELS[id] ?? id, count }))
     .sort((a, b) => b.count - a.count);
 
-  res.json({ channels, groups, total: (channelsData as any[]).length });
+  res.json({ channels, groups, total: all.length });
+});
+
+// ── Watch providers list (for country-aware streaming chips) ─────────────────
+router.get("/streaming/watch-providers", async (req, res) => {
+  const country = String(req.query.country ?? "ES").toUpperCase();
+  const type = String(req.query.type ?? "movie");
+  try {
+    const endpoint = type === "series" ? "/watch/providers/tv" : "/watch/providers/movie";
+    const data = await tmdbFetch(endpoint, { watch_region: country, language: "es-ES" });
+    const providers = (data.results ?? [])
+      .slice(0, 25)
+      .map((p: any) => ({
+        id: p.provider_id,
+        name: p.provider_name,
+        logo: p.logo_path ? `https://image.tmdb.org/t/p/w45${p.logo_path}` : null,
+        displayPriority: p.display_priority ?? 999,
+      }))
+      .sort((a: any, b: any) => a.displayPriority - b.displayPriority);
+    res.json({ providers, country });
+  } catch (err) {
+    req.log.error({ err }, "watch-providers error");
+    res.status(500).json({ error: "Failed to fetch watch providers" });
+  }
 });
 
 // YouTube Music search autocomplete suggestions

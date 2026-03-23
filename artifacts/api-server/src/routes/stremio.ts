@@ -2,15 +2,7 @@ import { Router, type IRouter } from "express";
 import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear, tmdbFetch } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 import { ensureEpg, getCurrentAndNext } from "../lib/epg.js";
-import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
-import path from "path";
-
-const __stremioDir = path.dirname(fileURLToPath(import.meta.url));
-interface LiveChannel { id: string; name: string; logo: string; groups: string[]; url: string; }
-const liveChannels: LiveChannel[] = JSON.parse(
-  readFileSync(path.join(__stremioDir, "../data/channels.json"), "utf8")
-);
+import { getLiveChannels, type LiveChannel } from "../lib/live-channels.js";
 
 const router: IRouter = Router();
 
@@ -513,7 +505,7 @@ router.get("/stremio/catalog/:type/:id.json", async (req, res) => {
 });
 
 // ── TV catalog (live channels) ──────────────────────────────────
-router.get("/stremio/catalog/tv/:catalogId.json", (req, res) => {
+router.get("/stremio/catalog/tv/:catalogId.json", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "public, max-age=300");
@@ -521,7 +513,8 @@ router.get("/stremio/catalog/tv/:catalogId.json", (req, res) => {
   const catalogId = req.params.catalogId.replace(/\.json$/, "");
   if (catalogId !== "live-es") { res.json({ metas: [] }); return; }
 
-  const metas = liveChannels.slice(0, 200).map((ch) => ({
+  const liveChannels = await getLiveChannels();
+  const metas = liveChannels.slice(0, 300).map((ch) => ({
     id: `tv:${ch.id}`,
     type: "tv",
     name: ch.name,
@@ -540,7 +533,8 @@ router.get("/stremio/meta/tv/:id.json", async (req, res) => {
 
   const rawId = req.params.id.replace(/\.json$/, "");
   const chId = rawId.startsWith("tv:") ? rawId.slice(3) : rawId;
-  const ch = liveChannels.find((c) => c.id === chId);
+  const channels = await getLiveChannels();
+  const ch = channels.find((c) => c.id === chId);
 
   if (!ch) { res.json({ meta: null }); return; }
 
@@ -571,37 +565,32 @@ router.get("/stremio/meta/tv/:id.json", async (req, res) => {
 });
 
 // ── TV stream handler ────────────────────────────────────────────
-router.get("/stremio/stream/tv/:id.json", (req, res) => {
+router.get("/stremio/stream/tv/:id.json", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
 
   const rawId = req.params.id.replace(/\.json$/, "");
   const chId = rawId.startsWith("tv:") ? rawId.slice(3) : rawId;
-  const ch = liveChannels.find((c) => c.id === chId);
+  const channels = await getLiveChannels();
+  const ch = channels.find((c) => c.id === chId);
 
   if (!ch || !ch.url) { res.json({ streams: [] }); return; }
 
   res.json({
-    streams: [
-      {
-        name: ch.name,
-        title: "📡 TV en Directo",
-        url: ch.url,
-        behaviorHints: { notWebReady: false },
-      },
-    ],
+    streams: [{ name: ch.name, title: "📡 TV en Directo", url: ch.url, behaviorHints: { notWebReady: false } }],
   });
 });
 
 // ── M3U playlist download ────────────────────────────────────────
-router.get("/stremio/channels.m3u", (_req, res) => {
+router.get("/stremio/channels.m3u", async (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/x-mpegurl; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="canales-es.m3u"');
   res.setHeader("Cache-Control", "public, max-age=3600");
 
+  const channels = await getLiveChannels();
   const lines = ["#EXTM3U"];
-  for (const ch of liveChannels) {
+  for (const ch of channels) {
     const groups = ch.groups.join(";");
     lines.push(`#EXTINF:-1 tvg-id="${ch.id}" tvg-logo="${ch.logo}" group-title="${groups}",${ch.name}`);
     lines.push(ch.url);
