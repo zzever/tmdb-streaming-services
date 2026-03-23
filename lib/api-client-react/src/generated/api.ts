@@ -13,7 +13,16 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ErrorResponse,
+  GetPopularTitlesParams,
+  GetStreamingProvidersParams,
+  HealthStatus,
+  PopularResponse,
+  SearchResponse,
+  SearchTitlesParams,
+  StreamingProvidersResponse,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
 import type { ErrorType } from "../custom-fetch";
@@ -92,6 +101,303 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns streaming providers available in Spain for a given IMDB ID
+ * @summary Get streaming providers for a title
+ */
+export const getGetStreamingProvidersUrl = (
+  params: GetStreamingProvidersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/streaming/providers?${stringifiedParams}`
+    : `/api/streaming/providers`;
+};
+
+export const getStreamingProviders = async (
+  params: GetStreamingProvidersParams,
+  options?: RequestInit,
+): Promise<StreamingProvidersResponse> => {
+  return customFetch<StreamingProvidersResponse>(
+    getGetStreamingProvidersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStreamingProvidersQueryKey = (
+  params?: GetStreamingProvidersParams,
+) => {
+  return [`/api/streaming/providers`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetStreamingProvidersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStreamingProviders>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetStreamingProvidersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStreamingProviders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStreamingProvidersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStreamingProviders>>
+  > = ({ signal }) =>
+    getStreamingProviders(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStreamingProviders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStreamingProvidersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStreamingProviders>>
+>;
+export type GetStreamingProvidersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get streaming providers for a title
+ */
+
+export function useGetStreamingProviders<
+  TData = Awaited<ReturnType<typeof getStreamingProviders>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetStreamingProvidersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStreamingProviders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStreamingProvidersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Search for movies and series by title
+ * @summary Search movies and series
+ */
+export const getSearchTitlesUrl = (params: SearchTitlesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/streaming/search?${stringifiedParams}`
+    : `/api/streaming/search`;
+};
+
+export const searchTitles = async (
+  params: SearchTitlesParams,
+  options?: RequestInit,
+): Promise<SearchResponse> => {
+  return customFetch<SearchResponse>(getSearchTitlesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchTitlesQueryKey = (params?: SearchTitlesParams) => {
+  return [`/api/streaming/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchTitlesQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchTitles>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchTitlesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchTitles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchTitlesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchTitles>>> = ({
+    signal,
+  }) => searchTitles(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchTitles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchTitlesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchTitles>>
+>;
+export type SearchTitlesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search movies and series
+ */
+
+export function useSearchTitles<
+  TData = Awaited<ReturnType<typeof searchTitles>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchTitlesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchTitles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchTitlesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Get popular movies and series with their streaming providers in Spain
+ * @summary Get popular titles with providers
+ */
+export const getGetPopularTitlesUrl = (params?: GetPopularTitlesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/streaming/popular?${stringifiedParams}`
+    : `/api/streaming/popular`;
+};
+
+export const getPopularTitles = async (
+  params?: GetPopularTitlesParams,
+  options?: RequestInit,
+): Promise<PopularResponse> => {
+  return customFetch<PopularResponse>(getGetPopularTitlesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPopularTitlesQueryKey = (
+  params?: GetPopularTitlesParams,
+) => {
+  return [`/api/streaming/popular`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPopularTitlesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPopularTitles>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPopularTitlesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPopularTitles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPopularTitlesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPopularTitles>>
+  > = ({ signal }) => getPopularTitles(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPopularTitles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPopularTitlesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPopularTitles>>
+>;
+export type GetPopularTitlesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get popular titles with providers
+ */
+
+export function useGetPopularTitles<
+  TData = Awaited<ReturnType<typeof getPopularTitles>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPopularTitlesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPopularTitles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPopularTitlesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

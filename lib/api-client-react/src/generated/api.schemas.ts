@@ -8,3 +8,116 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface StreamingProvider {
+  name: string;
+  logo?: string | null;
+  /** flatrate, rent, buy, free, or ads */
+  type: string;
+  providerId: number;
+  tmdbUrl: string;
+}
+
+export interface StreamingProvidersResponse {
+  imdbId: string;
+  tmdbId: number;
+  title: string;
+  type: string;
+  providers: StreamingProvider[];
+}
+
+export interface SearchResult {
+  imdbId?: string | null;
+  tmdbId: number;
+  title: string;
+  type: string;
+  year?: number | null;
+  poster?: string | null;
+  overview?: string | null;
+  rating?: number | null;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  totalResults: number;
+}
+
+export interface PopularTitle {
+  imdbId?: string | null;
+  tmdbId: number;
+  title: string;
+  type: string;
+  year?: number | null;
+  poster?: string | null;
+  overview?: string | null;
+  rating?: number | null;
+  providers: StreamingProvider[];
+}
+
+export interface PopularResponse {
+  results: PopularTitle[];
+  page: number;
+  totalPages: number;
+}
+
+export interface ErrorResponse {
+  error: string;
+  message: string;
+}
+
+export type GetStreamingProvidersParams = {
+  /**
+   * IMDB ID of the movie or series (e.g. tt1234567)
+   */
+  imdbId: string;
+  /**
+   * Type of media
+   */
+  type: GetStreamingProvidersType;
+};
+
+export type GetStreamingProvidersType =
+  (typeof GetStreamingProvidersType)[keyof typeof GetStreamingProvidersType];
+
+export const GetStreamingProvidersType = {
+  movie: "movie",
+  series: "series",
+} as const;
+
+export type SearchTitlesParams = {
+  /**
+   * Search query
+   */
+  query: string;
+  /**
+   * Filter by media type
+   */
+  type?: SearchTitlesType;
+};
+
+export type SearchTitlesType =
+  (typeof SearchTitlesType)[keyof typeof SearchTitlesType];
+
+export const SearchTitlesType = {
+  movie: "movie",
+  series: "series",
+} as const;
+
+export type GetPopularTitlesParams = {
+  /**
+   * Filter by media type (defaults to movie)
+   */
+  type?: GetPopularTitlesType;
+  /**
+   * Page number (defaults to 1)
+   */
+  page?: number;
+};
+
+export type GetPopularTitlesType =
+  (typeof GetPopularTitlesType)[keyof typeof GetPopularTitlesType];
+
+export const GetPopularTitlesType = {
+  movie: "movie",
+  series: "series",
+} as const;

@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "For cinematic page transitions, micro-interactions, and fluid modal animations"
+  "use-debounce": "For debouncing search input to prevent excessive API calls"
+  "clsx": "For conditional class name joining"
+  "tailwind-merge": "For merging tailwind classes efficiently in UI components"
+
+images:
+  - path: "artifacts/tmdb-stremio/public/images/hero-bg.png"
+    description: "Cinematic abstract dark background with subtle neon red and deep purple glowing light leaks, 4k resolution, premium streaming platform aesthetic"
+    aspect_ratio: "16:9"
+  - path: "artifacts/tmdb-stremio/public/images/empty-state.png"
+    description: "Minimalist neon outline illustration of a popcorn bucket and 3D glasses on a dark background, glowing magenta and blue, clean modern vector art"
+    aspect_ratio: "1:1"
+
+notes:
+  - Using generated hooks from @workspace/api-client-react for TMDB data fetching
+  - Modal fetches providers dynamically using imdbId if not already present
+  - Assuming image paths from TMDB need 'https://image.tmdb.org/t/p/' base URL if relative

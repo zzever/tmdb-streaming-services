@@ -14,3 +14,96 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns streaming providers available in Spain for a given IMDB ID
+ * @summary Get streaming providers for a title
+ */
+export const GetStreamingProvidersQueryParams = zod.object({
+  imdbId: zod.coerce
+    .string()
+    .describe("IMDB ID of the movie or series (e.g. tt1234567)"),
+  type: zod.enum(["movie", "series"]).describe("Type of media"),
+});
+
+export const GetStreamingProvidersResponse = zod.object({
+  imdbId: zod.string(),
+  tmdbId: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  providers: zod.array(
+    zod.object({
+      name: zod.string(),
+      logo: zod.string().nullish(),
+      type: zod.string().describe("flatrate, rent, buy, free, or ads"),
+      providerId: zod.number(),
+      tmdbUrl: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Search for movies and series by title
+ * @summary Search movies and series
+ */
+export const SearchTitlesQueryParams = zod.object({
+  query: zod.coerce.string().describe("Search query"),
+  type: zod
+    .enum(["movie", "series"])
+    .optional()
+    .describe("Filter by media type"),
+});
+
+export const SearchTitlesResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      imdbId: zod.string().nullish(),
+      tmdbId: zod.number(),
+      title: zod.string(),
+      type: zod.string(),
+      year: zod.number().nullish(),
+      poster: zod.string().nullish(),
+      overview: zod.string().nullish(),
+      rating: zod.number().nullish(),
+    }),
+  ),
+  totalResults: zod.number(),
+});
+
+/**
+ * Get popular movies and series with their streaming providers in Spain
+ * @summary Get popular titles with providers
+ */
+export const GetPopularTitlesQueryParams = zod.object({
+  type: zod
+    .enum(["movie", "series"])
+    .optional()
+    .describe("Filter by media type (defaults to movie)"),
+  page: zod.coerce.number().optional().describe("Page number (defaults to 1)"),
+});
+
+export const GetPopularTitlesResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      imdbId: zod.string().nullish(),
+      tmdbId: zod.number(),
+      title: zod.string(),
+      type: zod.string(),
+      year: zod.number().nullish(),
+      poster: zod.string().nullish(),
+      overview: zod.string().nullish(),
+      rating: zod.number().nullish(),
+      providers: zod.array(
+        zod.object({
+          name: zod.string(),
+          logo: zod.string().nullish(),
+          type: zod.string().describe("flatrate, rent, buy, free, or ads"),
+          providerId: zod.number(),
+          tmdbUrl: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  page: zod.number(),
+  totalPages: zod.number(),
+});

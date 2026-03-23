@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "TMDB Streaming Services"
+version = "1.0.0"
+id = "artifacts/tmdb-stremio"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21615
+
+[services.development]
+run = "pnpm --filter @workspace/tmdb-stremio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tmdb-stremio", "run", "build" ]
+publicDir = "artifacts/tmdb-stremio/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21615"
+BASE_PATH = "/"

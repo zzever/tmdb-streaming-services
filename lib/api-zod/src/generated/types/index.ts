@@ -6,4 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./errorResponse";
+export * from "./getPopularTitlesParams";
+export * from "./getPopularTitlesType";
+export * from "./getStreamingProvidersParams";
+export * from "./getStreamingProvidersType";
 export * from "./healthStatus";
+export * from "./popularResponse";
+export * from "./popularTitle";
+export * from "./searchResponse";
+export * from "./searchResult";
+export * from "./searchTitlesParams";
+export * from "./searchTitlesType";
+export * from "./streamingProvider";
+export * from "./streamingProvidersResponse";

@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: API specification
@@ -10,6 +9,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: streaming
+    description: Streaming provider operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /streaming/providers:
+    get:
+      operationId: getStreamingProviders
+      tags: [streaming]
+      summary: Get streaming providers for a title
+      description: Returns streaming providers available in Spain for a given IMDB ID
+      parameters:
+        - name: imdbId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: IMDB ID of the movie or series (e.g. tt1234567)
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [movie, series]
+          description: Type of media
+      responses:
+        "200":
+          description: Streaming providers list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamingProvidersResponse"
+        "404":
+          description: Title not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /streaming/search:
+    get:
+      operationId: searchTitles
+      tags: [streaming]
+      summary: Search movies and series
+      description: Search for movies and series by title
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [movie, series]
+          description: Filter by media type
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+  /streaming/popular:
+    get:
+      operationId: getPopularTitles
+      tags: [streaming]
+      summary: Get popular titles with providers
+      description: Get popular movies and series with their streaming providers in Spain
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [movie, series]
+          description: Filter by media type (defaults to movie)
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+          description: Page number (defaults to 1)
+      responses:
+        "200":
+          description: Popular titles with streaming providers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PopularResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +121,142 @@ components:
           type: string
       required:
         - status
-
+    StreamingProvider:
+      type: object
+      properties:
+        name:
+          type: string
+        logo:
+          type: string
+          nullable: true
+        type:
+          type: string
+          description: flatrate, rent, buy, free, or ads
+        providerId:
+          type: number
+        tmdbUrl:
+          type: string
+      required:
+        - name
+        - type
+        - providerId
+        - tmdbUrl
+    StreamingProvidersResponse:
+      type: object
+      properties:
+        imdbId:
+          type: string
+        tmdbId:
+          type: number
+        title:
+          type: string
+        type:
+          type: string
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/StreamingProvider"
+      required:
+        - imdbId
+        - tmdbId
+        - title
+        - type
+        - providers
+    SearchResult:
+      type: object
+      properties:
+        imdbId:
+          type: string
+          nullable: true
+        tmdbId:
+          type: number
+        title:
+          type: string
+        type:
+          type: string
+        year:
+          type: number
+          nullable: true
+        poster:
+          type: string
+          nullable: true
+        overview:
+          type: string
+          nullable: true
+        rating:
+          type: number
+          nullable: true
+      required:
+        - tmdbId
+        - title
+        - type
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        totalResults:
+          type: number
+      required:
+        - results
+        - totalResults
+    PopularTitle:
+      type: object
+      properties:
+        imdbId:
+          type: string
+          nullable: true
+        tmdbId:
+          type: number
+        title:
+          type: string
+        type:
+          type: string
+        year:
+          type: number
+          nullable: true
+        poster:
+          type: string
+          nullable: true
+        overview:
+          type: string
+          nullable: true
+        rating:
+          type: number
+          nullable: true
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/StreamingProvider"
+      required:
+        - tmdbId
+        - title
+        - type
+        - providers
+    PopularResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/PopularTitle"
+        page:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - results
+        - page
+        - totalPages
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message

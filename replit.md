@@ -48,6 +48,16 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
+## Artifacts
+
+### `artifacts/tmdb-stremio` (`@workspace/tmdb-stremio`)
+
+React + Vite frontend for the TMDB Streaming Services app. Displays popular movies and TV series with their Spanish streaming providers (Netflix, Disney+, Prime Video, etc.) using the TMDB API.
+
+- Preview path: `/` (root)
+- Key pages: `src/pages/Home.tsx`
+- Components: `MediaCard`, `ProviderModal`, `Header`
+
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)
