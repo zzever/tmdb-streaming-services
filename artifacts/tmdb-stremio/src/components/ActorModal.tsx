@@ -63,16 +63,16 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
                     }}>
                     {data.role === "director" ? "Director" : "Actor"}
                   </span>
-                  {(data as any).birthday && (
+                  {data.birthday && (
                     <span className="flex items-center gap-1 text-[11px] text-white/35">
                       <Calendar className="w-3 h-3" />
-                      {(data as any).birthday}
+                      {data.birthday}
                     </span>
                   )}
-                  {(data as any).birthPlace && (
+                  {data.birthPlace && (
                     <span className="flex items-center gap-1 text-[11px] text-white/35 truncate max-w-[160px]">
                       <MapPin className="w-3 h-3 shrink-0" />
-                      {(data as any).birthPlace}
+                      {data.birthPlace}
                     </span>
                   )}
                 </div>
@@ -91,11 +91,11 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
             </div>
           ) : (
             <>
-              {(data as any).biography && (
+              {data.biography && (
                 <div className="mb-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <h3 className="text-xs uppercase tracking-widest text-white/25 font-semibold mb-2">Biografía</h3>
                   <p className="text-[12px] text-white/50 leading-relaxed line-clamp-5 hover:line-clamp-none transition-all cursor-default">
-                    {(data as any).biography}
+                    {data.biography}
                   </p>
                 </div>
               )}

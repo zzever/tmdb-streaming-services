@@ -211,6 +211,10 @@ export interface PersonData {
   photo: string | null;
   credits: PersonCredit[];
   role: "actor" | "director";
+  biography: string | null;
+  birthday: string | null;
+  birthPlace: string | null;
+  knownFor: string | null;
 }
 
 // ── Title fan art backdrops ──
@@ -295,6 +299,6 @@ export function useGetPersonFilmography(
       return res.json() as Promise<PersonData>;
     },
     enabled: !!name && options?.query?.enabled !== false,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 }
