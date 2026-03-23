@@ -39,7 +39,7 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
     >
       {/* ── Image area ── */}
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-t-2xl bg-[rgba(255,255,255,0.04)]">
+      <div className="relative w-full overflow-hidden rounded-t-2xl bg-[rgba(255,255,255,0.04)]" style={{ minHeight: 80 }}>
 
         {/* Poster (base layer) */}
         {posterSrc ? (
@@ -49,7 +49,7 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
               src={posterSrc}
               alt={media.title}
               onLoad={() => setPosterLoaded(true)}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+              className={`w-full h-auto block transition-opacity duration-500 ${
                 posterLoaded ? (showBackdrop ? "opacity-0" : "opacity-100") : "opacity-0"
               }`}
               loading="lazy"
@@ -178,11 +178,8 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
             </span>
           ))}
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           <span className="text-[11px] text-white/30 font-medium shrink-0">{media.year || "—"}</span>
-          <span className="text-[9px] uppercase tracking-widest font-semibold text-white/20 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5 shrink-0">
-            {media.type === "series" ? "Serie" : "Film"}
-          </span>
         </div>
       </div>
 

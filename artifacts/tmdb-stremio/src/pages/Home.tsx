@@ -292,6 +292,9 @@ export default function Home() {
         <p className="text-white/20 text-xs">
           Data provided by TMDB · Streaming availability for Spain
         </p>
+        <p className="text-white/10 text-[11px] mt-2 tracking-widest uppercase font-medium">
+          designed by zzever
+        </p>
       </footer>
 
       {showAddList && <AddListDialog onClose={() => setShowAddList(false)} />}
