@@ -129,6 +129,24 @@ export function useDiscover(
   });
 }
 
+// ── Providers by TMDB ID (fallback when imdbId is null — discover results) ──
+export function useGetProvidersByTmdbId(
+  params: { tmdbId: number; type: "movie" | "series"; country?: string },
+  options?: { query?: { enabled?: boolean } }
+) {
+  const { tmdbId, type, country = "ES" } = params;
+  return useQuery({
+    queryKey: ["providers-by-tmdb", tmdbId, type, country],
+    queryFn: async () => {
+      const res = await fetch(`/api/streaming/providers-by-tmdb?tmdbId=${tmdbId}&type=${type}&country=${country}`);
+      if (!res.ok) throw new Error("Failed to fetch providers");
+      return res.json() as Promise<{ imdbId: string | null; tmdbId: number; title: string; type: string; providers: import("@workspace/api-client-react/src/generated/api.schemas").StreamingProvider[] }>;
+    },
+    enabled: options?.query?.enabled !== false,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 // ── Kitsu anime metadata ──
 export interface KitsuAnime {
   id: string;

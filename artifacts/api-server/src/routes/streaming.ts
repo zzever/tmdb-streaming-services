@@ -28,6 +28,59 @@ import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
 
+// Fetch providers by TMDB ID directly (used when imdbId is not available, e.g. discover results)
+router.get("/streaming/providers-by-tmdb", async (req, res) => {
+  const tmdbId = Number(req.query.tmdbId);
+  const type = String(req.query.type ?? "movie") as "movie" | "series";
+  const country = String(req.query.country ?? "ES");
+
+  if (!tmdbId || isNaN(tmdbId)) {
+    res.status(400).json({ error: "Bad Request", message: "tmdbId and type are required" });
+    return;
+  }
+
+  const mediaType = type === "series" ? "series" : "movie";
+
+  try {
+    const [imdbId, providersResult, title] = await Promise.all([
+      getImdbId(tmdbId, mediaType).catch(() => null),
+      getWatchProviders(tmdbId, mediaType, country),
+      getTmdbTitle(tmdbId, mediaType),
+    ]);
+
+    const mapped = providersResult
+      ? mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType, country)
+      : [];
+
+    if (mapped.length > 0 && title) {
+      const jwOffers = await getJWDirectOffers(tmdbId, mediaType, country ?? "ES", title);
+      if (jwOffers.length > 0) {
+        const jwUrlMap = new Map<string, string>();
+        for (const offer of jwOffers) {
+          const key = `${offer.providerName}::${offer.monetizationType}`;
+          if (!jwUrlMap.has(key)) jwUrlMap.set(key, offer.directUrl);
+          if (!jwUrlMap.has(offer.providerName)) jwUrlMap.set(offer.providerName, offer.directUrl);
+        }
+        for (const p of mapped) {
+          const directUrl = jwUrlMap.get(`${p.name}::${p.type}`) ?? jwUrlMap.get(p.name);
+          if (directUrl) p.watchUrl = directUrl;
+        }
+      }
+    }
+
+    res.json({
+      imdbId: imdbId ?? null,
+      tmdbId,
+      title,
+      type,
+      providers: mapped,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching providers by tmdbId");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch providers" });
+  }
+});
+
 router.get("/streaming/providers", async (req, res) => {
   const parsed = GetStreamingProvidersQueryParams.safeParse(req.query);
   if (!parsed.success) {

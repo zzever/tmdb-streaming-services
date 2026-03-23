@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dialog } from "./ui/dialog";
-import { useGetStreamingProviders, useGetTitleDetails, useKitsuSearch } from "@/hooks/use-media-api";
+import { useGetStreamingProviders, useGetTitleDetails, useKitsuSearch, useGetProvidersByTmdbId } from "@/hooks/use-media-api";
 import { getTmdbImage } from "@/lib/utils";
 import { WATCH_LOCALES } from "@/lib/locales";
 import {
@@ -101,18 +101,30 @@ export function ProviderModal({
   const [selectedSimilar, setSelectedSimilar] = useState<SimilarTitle | null>(null);
   const [selectedActorName, setSelectedActorName] = useState<string | null>(null);
 
-  const shouldFetchProviders = isOpen && !!imdbId && (!initialProviders || initialProviders.length === 0);
-  const { data: providersData, isLoading: isLoadingProviders, isError: isErrorProviders } = useGetStreamingProviders(
+  const noInitial = !initialProviders || initialProviders.length === 0;
+  const shouldFetchByImdb  = isOpen && !!imdbId  && noInitial;
+  const shouldFetchByTmdb  = isOpen && !imdbId   && !!tmdbId && noInitial;
+
+  const { data: providersData,      isLoading: isLoadingByImdb,  isError: isErrorByImdb  } = useGetStreamingProviders(
     { imdbId: imdbId!, type, country },
-    { query: { enabled: shouldFetchProviders, retry: 1 } }
+    { query: { enabled: shouldFetchByImdb, retry: 1 } }
   );
+  const { data: providersByTmdbData, isLoading: isLoadingByTmdb, isError: isErrorByTmdb } = useGetProvidersByTmdbId(
+    { tmdbId: tmdbId!, type: type as "movie" | "series", country },
+    { query: { enabled: shouldFetchByTmdb } }
+  );
+
+  const isLoadingProviders = isLoadingByImdb || isLoadingByTmdb;
+  const isErrorProviders   = isErrorByImdb   || isErrorByTmdb;
 
   const { data: details, isLoading: isLoadingDetails } = useGetTitleDetails(
     { tmdbId: tmdbId!, type },
     { query: { enabled: isOpen && !!tmdbId } }
   );
 
-  const allProviders = initialProviders?.length ? initialProviders : providersData?.providers || [];
+  const allProviders = initialProviders?.length
+    ? initialProviders
+    : (providersData?.providers ?? providersByTmdbData?.providers ?? []);
   const providers = allProviders.filter((p) => ALLOWED_TYPES.has(p.type));
   const localeInfo = WATCH_LOCALES.find((l) => l.code === (country ?? "ES")) ?? WATCH_LOCALES.find((l) => l.code === "ES")!;
   const isMusic = isMusicContent(genres);
@@ -455,7 +467,7 @@ export function ProviderModal({
               </div>
             )}
 
-            {(isLoadingProviders && shouldFetchProviders) ? (
+            {(isLoadingProviders && (shouldFetchByImdb || shouldFetchByTmdb)) ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 text-primary animate-spin" />
               </div>
@@ -465,31 +477,23 @@ export function ProviderModal({
                 <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
                 <p className="text-red-400 text-sm">No se pudieron cargar los proveedores.</p>
               </div>
-            ) : providers.length === 0 && !isMusic ? (
+            ) : providers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center"
                 style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16 }}>
                 <MonitorPlay className="w-8 h-8 text-white/15 mb-2" />
                 <p className="text-white/40 text-sm font-medium">No disponible en streaming</p>
                 <p className="text-white/20 text-xs mt-1">No encontramos plataformas en {localeInfo.name} {localeInfo.flag}</p>
               </div>
-            ) : providers.length > 0 ? (
+            ) : (
               <div className="space-y-5">
-                {isMusic && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-white/25">También en plataformas</span>
-                    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
-                  </div>
-                )}
                 {Object.entries(groupedProviders).map(([provType, provs]) => {
                   const config = TYPE_CONFIG[provType] ?? { label: provType, color: "text-white/40", border: "border-white/10", bg: "bg-white/5" };
                   return (
                     <div key={provType}>
-                      {!isMusic && (
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className={`text-[11px] font-bold uppercase tracking-widest ${config.color}`}>{config.label}</span>
-                          <div className="flex-1 h-px" style={{ background: `rgba(255,255,255,0.06)` }} />
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`text-[11px] font-bold uppercase tracking-widest ${config.color}`}>{config.label}</span>
+                        <div className="flex-1 h-px" style={{ background: `rgba(255,255,255,0.06)` }} />
+                      </div>
                       <div className="flex flex-wrap gap-2.5">
                         {provs.map((provider, i) => (
                           <ProviderChip key={`${provider.providerId}-${i}`} provider={provider} />
@@ -499,7 +503,7 @@ export function ProviderModal({
                   );
                 })}
               </div>
-            ) : null}
+            )}
           </div>
 
           {/* ── Similar titles ── */}
