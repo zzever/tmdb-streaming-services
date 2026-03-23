@@ -223,6 +223,27 @@ export interface TmdbDetails {
   number_of_seasons?: number;
 }
 
+export async function getTmdbBasicById(tmdbId: number, type: 'movie' | 'series') {
+  try {
+    const path = type === 'series' ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+    const raw = await tmdbFetch<any>(path);
+    return {
+      tmdbId: raw.id as number,
+      imdbId: (raw.imdb_id || null) as string | null,
+      title: (raw.title || raw.name || '') as string,
+      overview: (raw.overview || null) as string | null,
+      poster: (raw.poster_path || null) as string | null,
+      backdrop: (raw.backdrop_path || null) as string | null,
+      rating: (raw.vote_average || null) as number | null,
+      year: parseYear(raw),
+      genres: mapGenres((raw.genres ?? []).map((g: any) => g.id)),
+      type,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getTmdbDetails(imdbId: string, type: 'movie' | 'series'): Promise<TmdbDetails | null> {
   try {
     const tmdbId = await findTmdbId(imdbId, type);

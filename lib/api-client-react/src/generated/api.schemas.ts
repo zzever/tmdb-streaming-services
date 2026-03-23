@@ -71,6 +71,11 @@ export interface ErrorResponse {
   message: string;
 }
 
+export interface ListResponse {
+  name: string;
+  items: SearchResult[];
+}
+
 export interface CastMember {
   name: string;
   character: string;

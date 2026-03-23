@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { getTmdbImage } from "@/lib/utils";
 import { MonitorPlay, Star } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -10,6 +10,7 @@ interface MediaCardProps {
 }
 
 export function MediaCard({ media, onClick }: MediaCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
 
@@ -25,16 +26,22 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
   const backdropSrc = media.backdrop ? getTmdbImage(media.backdrop, "w780") : null;
   const posterSrc   = media.poster   ? getTmdbImage(media.poster, "w500")   : null;
 
+  const showBackdrop = isHovered && !!backdropSrc;
+
   return (
     <motion.div
-      whileHover={{ y: -5, scale: 1.015 }}
+      whileHover={{ y: -5, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 380, damping: 28 }}
       onClick={() => onClick(media)}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
       className="group relative flex flex-col cursor-pointer rounded-2xl glow-card hover:glow-card-hover transition-shadow duration-300"
       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
     >
-      {/* ── Poster area ── */}
+      {/* ── Image area ── */}
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-t-2xl bg-[rgba(255,255,255,0.04)]">
+
+        {/* Poster (base layer) */}
         {posterSrc ? (
           <>
             {!posterLoaded && <div className="absolute inset-0 shimmer" />}
@@ -42,7 +49,9 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
               src={posterSrc}
               alt={media.title}
               onLoad={() => setPosterLoaded(true)}
-              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${posterLoaded ? "opacity-100" : "opacity-0"}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+                posterLoaded ? (showBackdrop ? "opacity-0" : "opacity-100") : "opacity-0"
+              }`}
               loading="lazy"
             />
           </>
@@ -53,15 +62,59 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
           </div>
         )}
 
-        {/* Hover overlay: synopsis */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-          <p className="text-[11px] text-white/80 line-clamp-5 leading-relaxed">
-            {media.overview || "Sin descripción disponible."}
-          </p>
-        </div>
+        {/* Backdrop (hover layer — crossfade) */}
+        {backdropSrc && (
+          <>
+            <img
+              src={backdropSrc}
+              alt=""
+              aria-hidden
+              onLoad={() => setBackdropLoaded(true)}
+              className="absolute inset-0 w-full h-full object-cover object-center opacity-0 pointer-events-none"
+              loading="lazy"
+              style={{ display: "none" }}
+            />
+            <AnimatePresence>
+              {showBackdrop && backdropLoaded && (
+                <motion.div
+                  key="backdrop"
+                  initial={{ opacity: 0, scale: 1.04 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.04 }}
+                  transition={{ duration: 0.45, ease: "easeInOut" }}
+                  className="absolute inset-0"
+                >
+                  <img
+                    src={backdropSrc}
+                    alt=""
+                    aria-hidden
+                    className="w-full h-full object-cover object-center"
+                  />
+                  {/* Gradient overlay for readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/10" />
+                  {/* Overview text */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-[11px] text-white/85 line-clamp-4 leading-relaxed">
+                      {media.overview || "Sin descripción disponible."}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+
+        {/* Hover synopsis (when no backdrop) */}
+        {!backdropSrc && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+            <p className="text-[11px] text-white/80 line-clamp-5 leading-relaxed">
+              {media.overview || "Sin descripción disponible."}
+            </p>
+          </div>
+        )}
 
         {/* Top gradient for badges */}
-        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none z-10" />
 
         {/* Rating badge */}
         {media.rating && media.rating > 0 && (
@@ -102,34 +155,6 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
         )}
       </div>
 
-      {/* ── Backdrop strip (second fanart) ── */}
-      <div className="relative w-full overflow-hidden bg-[rgba(255,255,255,0.02)]" style={{ aspectRatio: "16/5" }}>
-        {backdropSrc ? (
-          <>
-            {!backdropLoaded && <div className="absolute inset-0 shimmer" />}
-            <img
-              src={backdropSrc}
-              alt=""
-              aria-hidden
-              onLoad={() => setBackdropLoaded(true)}
-              className={`w-full h-full object-cover object-center transition-all duration-700 group-hover:scale-105 group-hover:brightness-110 ${backdropLoaded ? "opacity-100" : "opacity-0"}`}
-              loading="lazy"
-            />
-          </>
-        ) : (
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(229,9,20,0.06) 0%, rgba(99,102,241,0.06) 100%)",
-            }}
-          />
-        )}
-        {/* Fade out edges */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d16]/80 to-transparent pointer-events-none" />
-      </div>
-
       {/* ── Info bar — always fully visible ── */}
       <div
         className="px-3 pt-2 pb-2.5 flex flex-col gap-1"
@@ -142,8 +167,6 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
         <h3 className="font-display font-semibold text-white/90 text-sm leading-tight truncate group-hover:text-white transition-colors">
           {media.title}
         </h3>
-
-        {/* Genres row — max 2 chips, never wraps */}
         <div className="flex items-center gap-1 overflow-hidden">
           {(media.genres ?? []).slice(0, 2).map((g) => (
             <span
@@ -155,8 +178,6 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
             </span>
           ))}
         </div>
-
-        {/* Year + type — always on same line */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-white/30 font-medium shrink-0">{media.year || "—"}</span>
           <span className="text-[9px] uppercase tracking-widest font-semibold text-white/20 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5 shrink-0">
@@ -164,6 +185,18 @@ export function MediaCard({ media, onClick }: MediaCardProps) {
           </span>
         </div>
       </div>
+
+      {/* Preload backdrop off-screen */}
+      {backdropSrc && !backdropLoaded && (
+        <img
+          src={backdropSrc}
+          alt=""
+          aria-hidden
+          className="sr-only"
+          onLoad={() => setBackdropLoaded(true)}
+          loading="lazy"
+        />
+      )}
     </motion.div>
   );
 }

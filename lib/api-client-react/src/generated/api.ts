@@ -18,6 +18,7 @@ import type {
   GetPopularTitlesParams,
   GetStreamingProvidersParams,
   HealthStatus,
+  ListResponse,
   PopularResponse,
   SearchResponse,
   SearchTitlesParams,
@@ -378,6 +379,41 @@ export const getGetPopularTitlesQueryOptions = <
 export type GetPopularTitlesQueryResult = NonNullable<
   Awaited<ReturnType<typeof getPopularTitles>>
 >;
+export type ListSourceParams =
+  | { source: "mdblist"; listId: string; apiKey: string }
+  | { source: "trakt"; username: string; slug: string; clientId: string };
+
+export const getListUrl = (params: ListSourceParams) => {
+  const base = `/api/streaming/list?source=${params.source}`;
+  if (params.source === "mdblist") return `${base}&listId=${params.listId}&apiKey=${params.apiKey}`;
+  return `${base}&username=${params.username}&slug=${params.slug}&clientId=${params.clientId}`;
+};
+
+export const getList = async (params: ListSourceParams, options?: RequestInit): Promise<ListResponse> =>
+  customFetch<ListResponse>(getListUrl(params), { ...options, method: "GET" });
+
+export const getGetListQueryKey = (params: ListSourceParams) =>
+  [`/api/streaming/list`, params] as const;
+
+export function useGetList<
+  TData = Awaited<ReturnType<typeof getList>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListSourceParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getList>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetListQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getList>>> = ({ signal }) =>
+    getList(params, { signal } as RequestInit);
+  const query = useQuery({ queryKey, queryFn, ...queryOptions }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  query.queryKey = queryKey;
+  return query;
+}
+
 export const getTitleDetailsUrl = (params: { tmdbId: number; type: string }) =>
   `/api/streaming/details?tmdbId=${params.tmdbId}&type=${params.type}`;
 

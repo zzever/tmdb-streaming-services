@@ -4,8 +4,11 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
 import { ProviderModal } from "@/components/ProviderModal";
+import { ListsSection } from "@/components/ListSection";
+import { AddListDialog } from "@/components/AddListDialog";
+import { useLists } from "@/context/ListsContext";
 import { useLocale } from "@/context/LocaleContext";
-import { Copy, Check, Zap, Plug, Shuffle } from "lucide-react";
+import { Copy, Check, Zap, Plug, Shuffle, BookMarked, Plus, Film, Tv2 } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -93,8 +96,11 @@ function StremioInstallBanner() {
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeType, setActiveType] = useState<"movie" | "series">("movie");
+  const [viewMode, setViewMode] = useState<"browse" | "lists">("browse");
+  const [showAddList, setShowAddList] = useState(false);
   const debouncedQuery = useDebounce(searchQuery, 500);
   const { locale } = useLocale();
+  const { lists } = useLists();
 
   const [selectedMedia, setSelectedMedia] = useState<PopularTitle | SearchResult | null>(null);
 
@@ -128,55 +134,90 @@ export default function Home() {
         setActiveType={setActiveType}
       />
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
 
-        {/* Section heading */}
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Zap className="w-4 h-4 text-primary/70" />
-              <span className="text-xs uppercase tracking-widest text-white/30 font-semibold">
-                {isSearching ? "Resultados" : "Populares"}
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">
-              {isSearching ? (
-                <>
-                  <span className="text-white/80">Resultados para </span>
-                  <span className="gradient-text-primary">"{debouncedQuery}"</span>
-                </>
-              ) : (
-                <>
-                  <span className="gradient-text">
-                    {activeType === "movie" ? "Películas" : "Series"}
-                  </span>
-                </>
-              )}
-            </h1>
+        {/* View mode tabs */}
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <div
+            className="flex items-center gap-1 p-1 rounded-2xl"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            {([
+              { id: "browse-movie", label: "Películas", icon: <Film className="w-3.5 h-3.5" />, mode: "browse", type: "movie" as const },
+              { id: "browse-series", label: "Series", icon: <Tv2 className="w-3.5 h-3.5" />, mode: "browse", type: "series" as const },
+              { id: "lists", label: "Mis Listas", icon: <BookMarked className="w-3.5 h-3.5" />, mode: "lists", type: null },
+            ] as const).map((tab) => {
+              const isActive =
+                tab.mode === "lists"
+                  ? viewMode === "lists"
+                  : viewMode === "browse" && activeType === tab.type;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.mode === "lists") {
+                      setViewMode("lists");
+                    } else {
+                      setViewMode("browse");
+                      setActiveType(tab.type!);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    isActive
+                      ? "text-white bg-white/10 shadow-sm"
+                      : "text-white/35 hover:text-white/60"
+                  }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  {tab.mode === "lists" && lists.length > 0 && (
+                    <span className="ml-0.5 text-[10px] text-white/30 tabular-nums">({lists.length})</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
+          {/* Right-side actions */}
           <div className="flex items-center gap-2 shrink-0">
-            {displayedData && displayedData.length > 0 && (
-              <span className="text-xs text-white/20 tabular-nums">{displayedData.length} títulos</span>
-            )}
-            {displayedData && displayedData.length > 0 && (
+            {viewMode === "lists" ? (
               <button
-                onClick={() => {
-                  const randomItem = displayedData[Math.floor(Math.random() * displayedData.length)];
-                  setSelectedMedia(randomItem);
-                }}
-                title="Título aleatorio"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all duration-200 hover:bg-white/10"
-                style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+                onClick={() => setShowAddList(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/60 hover:text-white transition-all duration-200"
+                style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)" }}
               >
-                <Shuffle className="w-3.5 h-3.5" />
-                Aleatorio
+                <Plus className="w-3.5 h-3.5" />
+                Añadir lista
               </button>
+            ) : (
+              <>
+                {displayedData && displayedData.length > 0 && (
+                  <span className="text-xs text-white/20 tabular-nums">{displayedData.length} títulos</span>
+                )}
+                {displayedData && displayedData.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const randomItem = displayedData[Math.floor(Math.random() * displayedData.length)];
+                      setSelectedMedia(randomItem);
+                    }}
+                    title="Título aleatorio"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all duration-200 hover:bg-white/10"
+                    style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+                  >
+                    <Shuffle className="w-3.5 h-3.5" />
+                    Aleatorio
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Grid */}
+        {/* Lists view */}
+        {viewMode === "lists" && <ListsSection />}
+
+        {/* Browse / search grid */}
+        {viewMode === "browse" && (
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -242,6 +283,7 @@ export default function Home() {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </main>
 
       <StremioInstallBanner />
@@ -251,6 +293,8 @@ export default function Home() {
           Data provided by TMDB · Streaming availability for Spain
         </p>
       </footer>
+
+      {showAddList && <AddListDialog onClose={() => setShowAddList(false)} />}
 
       {selectedMedia && (
         <ProviderModal

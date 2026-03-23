@@ -17,6 +17,7 @@ import {
   backdropUrl,
   mapGenres,
   getTitleRichDetails,
+  getTmdbBasicById,
 } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 
@@ -167,6 +168,126 @@ router.get("/streaming/popular", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error fetching popular titles");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch popular titles" });
+  }
+});
+
+async function batchFetch<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R | null>,
+  concurrency = 8
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const settled = await Promise.allSettled(batch.map(fn));
+    for (const r of settled) {
+      if (r.status === "fulfilled" && r.value !== null) results.push(r.value);
+    }
+  }
+  return results;
+}
+
+router.get("/streaming/list", async (req, res) => {
+  const source = String(req.query.source ?? "");
+  const apiKey = String(req.query.apiKey ?? "");
+  const listId = String(req.query.listId ?? "");
+  const username = String(req.query.username ?? "");
+  const slug = String(req.query.slug ?? "");
+  const clientId = String(req.query.clientId ?? "");
+
+  try {
+    if (source === "mdblist") {
+      if (!listId || !apiKey) {
+        res.status(400).json({ error: "Bad Request", message: "listId and apiKey are required for mdblist" });
+        return;
+      }
+
+      const listMetaUrl = `https://mdblist.com/api/lists/${listId}?apikey=${apiKey}`;
+      const itemsUrl = `https://mdblist.com/api/lists/${listId}/items?apikey=${apiKey}&limit=50`;
+
+      const [metaResp, itemsResp] = await Promise.all([
+        fetch(listMetaUrl),
+        fetch(itemsUrl),
+      ]);
+
+      if (!itemsResp.ok) {
+        res.status(502).json({ error: "Upstream Error", message: "MDBList request failed" });
+        return;
+      }
+
+      const listMeta = metaResp.ok ? await metaResp.json() as any : null;
+      const data = await itemsResp.json() as any;
+      const rawItems: any[] = data.items ?? [];
+
+      const seedItems = rawItems
+        .filter((it: any) => it.tmdbid || it.imdb_id)
+        .slice(0, 50)
+        .map((it: any) => ({
+          tmdbId: it.tmdbid as number | undefined,
+          imdbId: it.imdb_id as string | undefined,
+          type: it.mediatype === "show" ? "series" : "movie" as "movie" | "series",
+          fallbackTitle: it.title ?? "",
+        }));
+
+      const items = await batchFetch(seedItems, async (seed) => {
+        if (seed.tmdbId) return getTmdbBasicById(seed.tmdbId, seed.type);
+        return null;
+      });
+
+      res.json({ name: listMeta?.name ?? "Mi lista MDBList", items });
+      return;
+    }
+
+    if (source === "trakt") {
+      if (!username || !slug || !clientId) {
+        res.status(400).json({ error: "Bad Request", message: "username, slug and clientId are required for trakt" });
+        return;
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        "trakt-api-version": "2",
+        "trakt-api-key": clientId,
+      };
+
+      const listMetaUrl = `https://api.trakt.tv/users/${username}/lists/${slug}`;
+      const itemsUrl = `https://api.trakt.tv/users/${username}/lists/${slug}/items?limit=50`;
+
+      const [metaResp, itemsResp] = await Promise.all([
+        fetch(listMetaUrl, { headers }),
+        fetch(itemsUrl, { headers }),
+      ]);
+
+      if (!itemsResp.ok) {
+        res.status(502).json({ error: "Upstream Error", message: `Trakt request failed: ${itemsResp.status}` });
+        return;
+      }
+
+      const listMeta = metaResp.ok ? await metaResp.json() as any : null;
+      const rawItems = await itemsResp.json() as any[];
+
+      const seedItems = rawItems
+        .filter((it) => it.type === "movie" || it.type === "show")
+        .slice(0, 50)
+        .map((it) => {
+          const type: "movie" | "series" = it.type === "show" ? "series" : "movie";
+          const obj = it.type === "movie" ? it.movie : it.show;
+          return { tmdbId: obj?.ids?.tmdb as number | undefined, type };
+        })
+        .filter((s) => !!s.tmdbId);
+
+      const items = await batchFetch(seedItems, async (seed) => {
+        return seed.tmdbId ? getTmdbBasicById(seed.tmdbId!, seed.type) : null;
+      });
+
+      res.json({ name: listMeta?.name ?? "Mi lista Trakt", items });
+      return;
+    }
+
+    res.status(400).json({ error: "Bad Request", message: "source must be 'mdblist' or 'trakt'" });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching list");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch list" });
   }
 });
 

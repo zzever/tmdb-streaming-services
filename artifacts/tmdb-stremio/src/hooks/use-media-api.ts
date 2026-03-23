@@ -3,6 +3,7 @@ import {
   useSearchTitles, 
   useGetStreamingProviders,
   useGetTitleDetails,
+  useGetList,
 } from "@workspace/api-client-react";
 
 export {
@@ -10,4 +11,5 @@ export {
   useSearchTitles,
   useGetStreamingProviders,
   useGetTitleDetails,
+  useGetList,
 };
