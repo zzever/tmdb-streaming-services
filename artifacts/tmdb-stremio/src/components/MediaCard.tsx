@@ -30,8 +30,9 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
   const [everHovered, setEverHovered] = useState(false);
   const { toggle, isInWatchlist } = useWatchlist();
   const { toggle: toggleWatched, isWatched } = useWatched();
-  const inList = media.id ? isInWatchlist(media.id) : false;
-  const inWatched = media.id ? isWatched(media.id) : false;
+  const mediaId = media.tmdbId ?? media.id ?? null;
+  const inList = mediaId ? isInWatchlist(mediaId) : false;
+  const inWatched = mediaId ? isWatched(mediaId) : false;
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [backdropLoaded, setBackdropLoaded] = useState(false);
 
@@ -55,8 +56,9 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
 
   const handleToggleWatched = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!mediaId) return;
     toggleWatched({
-      id: media.id,
+      id: mediaId,
       type: media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie"),
       title: media.title ?? media.name ?? "",
       poster: media.poster ?? null,
@@ -70,8 +72,9 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
 
   const handleToggleWatchlist = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!mediaId) return;
     toggle({
-      id: media.id,
+      id: mediaId,
       type: media.mediaType === "tv" ? "series" : (media.mediaType ?? "movie"),
       title: media.title ?? media.name ?? "",
       poster: media.poster ?? null,
@@ -153,7 +156,7 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
         )}
 
         {/* Action buttons */}
-        {media.id && (
+        {mediaId && (
           <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             <button onClick={handleToggleWatched} title={inWatched ? "Quitar de vistos" : "Marcar como visto"}
               className={`w-7 h-7 rounded-full flex items-center justify-center border transition-all duration-200 hover:scale-110 ${
@@ -368,7 +371,7 @@ export function MediaCard({ media, onClick, onGenreClick, compact = false }: Med
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-white/30 font-medium shrink-0">{media.year || "—"}</span>
-          {media.id && (
+          {mediaId && (
             <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
               <button
                 onClick={handleToggleWatched}

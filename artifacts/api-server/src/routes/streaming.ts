@@ -668,7 +668,7 @@ router.get("/streaming/person", async (req, res) => {
         const scoreB = (b.vote_count ?? 0) * (b.vote_average ?? 0);
         return scoreB - scoreA;
       })
-      .slice(0, 24)
+      .slice(0, 40)
       .map((c: any) => ({
         tmdbId: c.id,
         title: c.title || c.name || "",
@@ -680,11 +680,32 @@ router.get("/streaming/person", async (req, res) => {
         type: c.media_type === "tv" ? "series" : "movie",
       }));
 
+    // Fetch additional person details (biography, birthday)
+    let biography: string | null = null;
+    let birthday: string | null = null;
+    let birthPlace: string | null = null;
+    let knownFor: string | null = null;
+    try {
+      const details = await tmdbFetch<any>(`/person/${person.id}?language=es-ES`);
+      biography = details.biography || null;
+      birthday = details.birthday || null;
+      birthPlace = details.place_of_birth || null;
+      knownFor = details.known_for_department || null;
+      if (!biography) {
+        const enDetails = await tmdbFetch<any>(`/person/${person.id}?language=en-US`);
+        biography = enDetails.biography || null;
+      }
+    } catch { /* ignore */ }
+
     res.json({
       name: person.name,
       photo: person.profile_path ? `https://image.tmdb.org/t/p/w185${person.profile_path}` : null,
       credits: finalCredits,
       role,
+      biography,
+      birthday,
+      birthPlace,
+      knownFor,
     });
   } catch (err) {
     req.log.error({ err }, "Error fetching person credits");

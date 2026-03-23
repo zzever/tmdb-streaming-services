@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { useGetPersonFilmography } from "@/hooks/use-media-api";
-import { Loader2, Star, Film, Tv2, User, Video, Clapperboard } from "lucide-react";
+import { Loader2, Star, Film, Tv2, User, MapPin, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 import { ProviderModal } from "./ProviderModal";
 
@@ -51,11 +51,11 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
                 <User className="w-6 h-6 text-white/25" />
               </div>
             )}
-            <div>
-              <h2 className="text-xl font-display font-bold text-white/90">{actorName}</h2>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-display font-bold text-white/90 truncate">{actorName}</h2>
               {data && !isLoading && (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest"
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest shrink-0"
                     style={{
                       background: data.role === "director" ? "rgba(245,158,11,0.12)" : "rgba(99,102,241,0.1)",
                       color: data.role === "director" ? "rgba(252,211,77,0.9)" : "rgba(165,180,252,0.9)",
@@ -63,7 +63,18 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
                     }}>
                     {data.role === "director" ? "Director" : "Actor"}
                   </span>
-                  <p className="text-sm text-white/35">{data.credits.length} títulos destacados</p>
+                  {(data as any).birthday && (
+                    <span className="flex items-center gap-1 text-[11px] text-white/35">
+                      <Calendar className="w-3 h-3" />
+                      {(data as any).birthday}
+                    </span>
+                  )}
+                  {(data as any).birthPlace && (
+                    <span className="flex items-center gap-1 text-[11px] text-white/35 truncate max-w-[160px]">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      {(data as any).birthPlace}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -80,8 +91,16 @@ export function ActorModal({ isOpen, onClose, actorName, country }: ActorModalPr
             </div>
           ) : (
             <>
+              {(data as any).biography && (
+                <div className="mb-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <h3 className="text-xs uppercase tracking-widest text-white/25 font-semibold mb-2">Biografía</h3>
+                  <p className="text-[12px] text-white/50 leading-relaxed line-clamp-5 hover:line-clamp-none transition-all cursor-default">
+                    {(data as any).biography}
+                  </p>
+                </div>
+              )}
               <h3 className="text-xs uppercase tracking-widest text-white/25 font-semibold mb-4">
-                Filmografía
+                Filmografía · {data.credits.length} títulos
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {data.credits.map((credit, i) => (
