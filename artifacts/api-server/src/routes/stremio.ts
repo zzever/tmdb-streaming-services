@@ -20,7 +20,7 @@ function getApiBase(req: { get: (h: string) => string | undefined; protocol: str
 
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.2.0",
+  version: "2.3.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+ y más sin pasar por TMDB.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
@@ -216,9 +216,6 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
     const seenUrls = new Set<string>();
     const streams: object[] = [];
 
-    // Public-facing base URL — resolves correctly behind Replit's proxy
-    const apiBase = getApiBase(req);
-
     for (const p of sorted) {
       const directUrl =
         jwUrlMap.get(`${p.name}::${p.type}`) ??
@@ -231,18 +228,14 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
 
       const meta = TYPE_META[p.type] ?? { emoji: "▶️", label: p.type };
 
-      // Point Stremio to our HTML redirect page — works in Stremio Web & Desktop
-      // The page tries the native-app deep link first, then falls back to the web URL
-      const redirectUrl = `${apiBase}/api/stremio/open?url=${encodeURIComponent(directUrl)}&name=${encodeURIComponent(p.name)}`;
-
+      // externalUrl at root level tells Stremio Desktop/Web to open the URL
+      // in an external browser instead of trying to play it as a video stream.
       streams.push({
         name: `🇪🇸 ${p.name}`,
         title: `${meta.emoji} ${meta.label} · Ver en ${p.name}`,
         thumbnail: p.logo ?? undefined,
-        url: redirectUrl,
+        externalUrl: directUrl,
         behaviorHints: {
-          notWebReady: false,   // Let Stremio Web load the redirect page
-          externalUrl: directUrl,
           bingeGroup: `${p.type}-${p.name}`,
         },
       });
