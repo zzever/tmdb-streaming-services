@@ -16,6 +16,8 @@ export interface StreamingProvider {
   type: string;
   providerId: number;
   tmdbUrl: string;
+  /** Direct JustWatch link for the selected country */
+  watchUrl: string;
 }
 
 export interface StreamingProvidersResponse {
@@ -74,6 +76,10 @@ export type GetStreamingProvidersParams = {
    * Type of media
    */
   type: GetStreamingProvidersType;
+  /**
+   * ISO 3166-1 alpha-2 country code (defaults to ES)
+   */
+  country?: string;
 };
 
 export type GetStreamingProvidersType =
@@ -112,6 +118,10 @@ export type GetPopularTitlesParams = {
    * Page number (defaults to 1)
    */
   page?: number;
+  /**
+   * ISO 3166-1 alpha-2 country code (defaults to ES)
+   */
+  country?: string;
 };
 
 export type GetPopularTitlesType =

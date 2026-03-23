@@ -1,6 +1,7 @@
 import React from "react";
 import { Search, Film, Tv, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LocaleSelector } from "./LocaleSelector";
 
 interface HeaderProps {
   searchQuery: string;
@@ -64,6 +65,11 @@ export function Header({ searchQuery, setSearchQuery, activeType, setActiveType 
             <Tv className="w-4 h-4" />
             Series
           </button>
+        </div>
+
+        {/* Locale Selector */}
+        <div className="shrink-0 pb-4 sm:pb-0">
+          <LocaleSelector />
         </div>
 
       </div>

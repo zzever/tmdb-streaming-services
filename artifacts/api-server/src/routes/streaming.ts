@@ -24,7 +24,7 @@ router.get("/streaming/providers", async (req, res) => {
     return;
   }
 
-  const { imdbId, type } = parsed.data;
+  const { imdbId, type, country } = parsed.data;
   const mediaType = type === "series" ? "series" : "movie";
 
   try {
@@ -34,12 +34,14 @@ router.get("/streaming/providers", async (req, res) => {
       return;
     }
 
-    const [providers, title] = await Promise.all([
-      getWatchProviders(tmdbId, mediaType),
+    const [providersResult, title] = await Promise.all([
+      getWatchProviders(tmdbId, mediaType, country),
       getTmdbTitle(tmdbId, mediaType),
     ]);
 
-    const mapped = providers ? mapProviders(providers, tmdbId, mediaType) : [];
+    const mapped = providersResult
+      ? mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType)
+      : [];
 
     res.json({
       imdbId,
@@ -104,6 +106,7 @@ router.get("/streaming/popular", async (req, res) => {
 
   const mediaType = parsed.data.type === "series" ? "series" : "movie";
   const page = parsed.data.page ? Number(parsed.data.page) : 1;
+  const country = parsed.data.country;
 
   try {
     const { results, totalPages } = await getPopular(mediaType, page);
@@ -112,9 +115,9 @@ router.get("/streaming/popular", async (req, res) => {
       results.slice(0, 20).map(async (r) => {
         let providers: ReturnType<typeof mapProviders> = [];
         try {
-          const rawProviders = await getWatchProviders(r.id, mediaType);
-          if (rawProviders) {
-            providers = mapProviders(rawProviders, r.id, mediaType);
+          const providersResult = await getWatchProviders(r.id, mediaType, country);
+          if (providersResult) {
+            providers = mapProviders(providersResult.data, providersResult.watchUrl, r.id, mediaType);
           }
         } catch {
           providers = [];

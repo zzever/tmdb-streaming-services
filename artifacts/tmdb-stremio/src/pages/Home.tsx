@@ -4,6 +4,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
 import { ProviderModal } from "@/components/ProviderModal";
+import { useLocale } from "@/context/LocaleContext";
 import { Loader2, Copy, Check, ExternalLink } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
@@ -69,6 +70,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeType, setActiveType] = useState<"movie" | "series">("movie");
   const debouncedQuery = useDebounce(searchQuery, 500);
+  const { locale } = useLocale();
 
   const [selectedMedia, setSelectedMedia] = useState<PopularTitle | SearchResult | null>(null);
 
@@ -76,7 +78,7 @@ export default function Home() {
 
   // Fetch Popular
   const { data: popularData, isLoading: isLoadingPopular } = useGetPopularTitles(
-    { type: activeType, page: 1 },
+    { type: activeType, page: 1, country: locale.code },
     { query: { enabled: !isSearching } }
   );
 
@@ -195,6 +197,7 @@ export default function Home() {
           overview={selectedMedia.overview}
           rating={selectedMedia.rating}
           year={selectedMedia.year}
+          country={locale.code}
           initialProviders={"providers" in selectedMedia ? (selectedMedia as PopularTitle).providers : undefined}
         />
       )}

@@ -16,4 +16,8 @@ export type GetPopularTitlesParams = {
    * Page number (defaults to 1)
    */
   page?: number;
+  /**
+   * ISO 3166-1 alpha-2 country code (defaults to ES)
+   */
+  country?: string;
 };

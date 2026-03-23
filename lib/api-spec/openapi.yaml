@@ -30,7 +30,7 @@ paths:
       operationId: getStreamingProviders
       tags: [streaming]
       summary: Get streaming providers for a title
-      description: Returns streaming providers available in Spain for a given IMDB ID
+      description: Returns streaming providers available for a given IMDB ID and country
       parameters:
         - name: imdbId
           in: query
@@ -45,6 +45,12 @@ paths:
             type: string
             enum: [movie, series]
           description: Type of media
+        - name: country
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO 3166-1 alpha-2 country code (defaults to ES)
       responses:
         "200":
           description: Streaming providers list
@@ -90,7 +96,7 @@ paths:
       operationId: getPopularTitles
       tags: [streaming]
       summary: Get popular titles with providers
-      description: Get popular movies and series with their streaming providers in Spain
+      description: Get popular movies and series with their streaming providers
       parameters:
         - name: type
           in: query
@@ -105,6 +111,12 @@ paths:
           schema:
             type: number
           description: Page number (defaults to 1)
+        - name: country
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO 3166-1 alpha-2 country code (defaults to ES)
       responses:
         "200":
           description: Popular titles with streaming providers
@@ -136,11 +148,15 @@ components:
           type: number
         tmdbUrl:
           type: string
+        watchUrl:
+          type: string
+          description: Direct JustWatch link for the selected country
       required:
         - name
         - type
         - providerId
         - tmdbUrl
+        - watchUrl
     StreamingProvidersResponse:
       type: object
       properties:

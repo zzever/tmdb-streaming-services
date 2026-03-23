@@ -110,7 +110,7 @@ export function useHealthCheck<
 }
 
 /**
- * Returns streaming providers available in Spain for a given IMDB ID
+ * Returns streaming providers available for a given IMDB ID and country
  * @summary Get streaming providers for a title
  */
 export const getGetStreamingProvidersUrl = (
@@ -309,7 +309,7 @@ export function useSearchTitles<
 }
 
 /**
- * Get popular movies and series with their streaming providers in Spain
+ * Get popular movies and series with their streaming providers
  * @summary Get popular titles with providers
  */
 export const getGetPopularTitlesUrl = (params?: GetPopularTitlesParams) => {

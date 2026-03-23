@@ -62,18 +62,13 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
       return;
     }
 
-    const providers = await getWatchProviders(tmdbId, mediaType);
-    if (!providers) {
+    const providersResult = await getWatchProviders(tmdbId, mediaType);
+    if (!providersResult) {
       res.json({ streams: [] });
       return;
     }
 
-    const mapped = mapProviders(providers);
-
-    // Direct link to the series/movie page on TMDB (any episode links to the series)
-    const tmdbPageUrl = mediaType === "series"
-      ? `https://www.themoviedb.org/tv/${tmdbId}`
-      : `https://www.themoviedb.org/movie/${tmdbId}`;
+    const mapped = mapProviders(providersResult.data, providersResult.watchUrl, tmdbId, mediaType);
 
     // Sort by type priority
     const sorted = [...mapped].sort(
@@ -86,10 +81,10 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
         name: `🇪🇸 ${p.name}`,
         title: `${meta.emoji} ${meta.label}\nVer en ${p.name}`,
         thumbnail: p.logo ?? undefined,
-        url: tmdbPageUrl,
+        url: p.watchUrl,
         behaviorHints: {
           notWebReady: true,
-          externalUrl: tmdbPageUrl,
+          externalUrl: p.watchUrl,
           bingeGroup: `${p.type}-${p.name}`,
         },
       };

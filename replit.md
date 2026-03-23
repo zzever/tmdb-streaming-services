@@ -52,11 +52,15 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ### `artifacts/tmdb-stremio` (`@workspace/tmdb-stremio`)
 
-React + Vite frontend for the TMDB Streaming Services app. Displays popular movies and TV series with their Spanish streaming providers (Netflix, Disney+, Prime Video, etc.) using the TMDB API.
+React + Vite frontend for the TMDB Streaming Services app. Displays popular movies and TV series with their streaming providers for any supported country using the TMDB API.
 
 - Preview path: `/` (root)
 - Key pages: `src/pages/Home.tsx`
-- Components: `MediaCard`, `ProviderModal`, `Header`
+- Components: `MediaCard`, `ProviderModal`, `Header`, `LocaleSelector`
+- Locale context: `src/context/LocaleContext.tsx` — persists selected country in `localStorage`
+- Country list + helpers: `src/lib/locales.ts`
+- Provider links redirect directly to JustWatch (not through TMDB)
+- Country selector is passed as `country` query param to all API calls
 
 ## Packages
 

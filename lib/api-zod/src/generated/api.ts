@@ -16,7 +16,7 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns streaming providers available in Spain for a given IMDB ID
+ * Returns streaming providers available for a given IMDB ID and country
  * @summary Get streaming providers for a title
  */
 export const GetStreamingProvidersQueryParams = zod.object({
@@ -24,6 +24,10 @@ export const GetStreamingProvidersQueryParams = zod.object({
     .string()
     .describe("IMDB ID of the movie or series (e.g. tt1234567)"),
   type: zod.enum(["movie", "series"]).describe("Type of media"),
+  country: zod.coerce
+    .string()
+    .optional()
+    .describe("ISO 3166-1 alpha-2 country code (defaults to ES)"),
 });
 
 export const GetStreamingProvidersResponse = zod.object({
@@ -38,6 +42,9 @@ export const GetStreamingProvidersResponse = zod.object({
       type: zod.string().describe("flatrate, rent, buy, free, or ads"),
       providerId: zod.number(),
       tmdbUrl: zod.string(),
+      watchUrl: zod
+        .string()
+        .describe("Direct JustWatch link for the selected country"),
     }),
   ),
 });
@@ -71,7 +78,7 @@ export const SearchTitlesResponse = zod.object({
 });
 
 /**
- * Get popular movies and series with their streaming providers in Spain
+ * Get popular movies and series with their streaming providers
  * @summary Get popular titles with providers
  */
 export const GetPopularTitlesQueryParams = zod.object({
@@ -80,6 +87,10 @@ export const GetPopularTitlesQueryParams = zod.object({
     .optional()
     .describe("Filter by media type (defaults to movie)"),
   page: zod.coerce.number().optional().describe("Page number (defaults to 1)"),
+  country: zod.coerce
+    .string()
+    .optional()
+    .describe("ISO 3166-1 alpha-2 country code (defaults to ES)"),
 });
 
 export const GetPopularTitlesResponse = zod.object({
@@ -100,6 +111,9 @@ export const GetPopularTitlesResponse = zod.object({
           type: zod.string().describe("flatrate, rent, buy, free, or ads"),
           providerId: zod.number(),
           tmdbUrl: zod.string(),
+          watchUrl: zod
+            .string()
+            .describe("Direct JustWatch link for the selected country"),
         }),
       ),
     }),

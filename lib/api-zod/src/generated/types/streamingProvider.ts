@@ -13,4 +13,6 @@ export interface StreamingProvider {
   type: string;
   providerId: number;
   tmdbUrl: string;
+  /** Direct JustWatch link for the selected country */
+  watchUrl: string;
 }

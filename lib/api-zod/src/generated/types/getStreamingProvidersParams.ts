@@ -16,4 +16,8 @@ export type GetStreamingProvidersParams = {
    * Type of media
    */
   type: GetStreamingProvidersType;
+  /**
+   * ISO 3166-1 alpha-2 country code (defaults to ES)
+   */
+  country?: string;
 };

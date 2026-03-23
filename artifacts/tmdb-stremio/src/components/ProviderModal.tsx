@@ -2,6 +2,7 @@ import React from "react";
 import { Dialog } from "./ui/dialog";
 import { useGetStreamingProviders } from "@/hooks/use-media-api";
 import { getTmdbImage } from "@/lib/utils";
+import { WATCH_LOCALES } from "@/lib/locales";
 import { Loader2, MonitorPlay, AlertCircle, ExternalLink } from "lucide-react";
 import type { StreamingProvider } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
@@ -16,6 +17,7 @@ interface ProviderModalProps {
   overview?: string | null;
   rating?: number | null;
   year?: number | null;
+  country?: string;
   initialProviders?: StreamingProvider[];
 }
 
@@ -64,7 +66,7 @@ function ProviderChip({ provider }: { provider: StreamingProvider }) {
 
   return (
     <motion.a
-      href={provider.tmdbUrl}
+      href={provider.watchUrl}
       target="_blank"
       rel="noopener noreferrer"
       whileHover={{ scale: 1.05, y: -2 }}
@@ -109,16 +111,18 @@ export function ProviderModal({
   overview,
   rating,
   year,
+  country,
   initialProviders,
 }: ProviderModalProps) {
   const shouldFetch = isOpen && !!imdbId && (!initialProviders || initialProviders.length === 0);
 
   const { data, isLoading, isError } = useGetStreamingProviders(
-    { imdbId: imdbId!, type },
+    { imdbId: imdbId!, type, country },
     { query: { enabled: shouldFetch, retry: 1 } }
   );
 
   const providers = initialProviders?.length ? initialProviders : data?.providers || [];
+  const localeInfo = WATCH_LOCALES.find((l) => l.code === (country ?? "ES")) ?? WATCH_LOCALES.find((l) => l.code === "ES")!;
 
   const groupedProviders = TYPE_ORDER.reduce(
     (acc, t) => {
@@ -194,7 +198,8 @@ export function ProviderModal({
               {/* Providers section */}
               <h3 className="text-base font-semibold text-white/70 uppercase tracking-widest mb-5 flex items-center gap-2">
                 <MonitorPlay className="w-4 h-4 text-primary" />
-                Disponible en España
+                <span>{localeInfo.flag}</span>
+                Disponible en {localeInfo.name}
               </h3>
 
               {isLoading && shouldFetch ? (
@@ -211,7 +216,7 @@ export function ProviderModal({
                   <MonitorPlay className="w-10 h-10 text-muted-foreground mb-3 opacity-40" />
                   <p className="text-foreground text-base font-medium">No disponible en streaming</p>
                   <p className="text-muted-foreground text-sm mt-1">
-                    No encontramos plataformas españolas con este título.
+                    No encontramos plataformas en {localeInfo.name} {localeInfo.flag} con este título.
                   </p>
                 </div>
               ) : (

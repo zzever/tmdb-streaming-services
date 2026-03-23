@@ -1,6 +1,6 @@
 const TMDB_API_KEY = process.env.TMDB_API_KEY || '859cc2e71ad61f716670e302a58a9603';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
-const ES_COUNTRY = 'ES';
+const DEFAULT_COUNTRY = 'ES';
 
 export interface TmdbProvider {
   provider_id: number;
@@ -70,11 +70,17 @@ export async function getTmdbTitle(tmdbId: number, type: 'movie' | 'series'): Pr
 
 export async function getWatchProviders(
   tmdbId: number,
-  type: 'movie' | 'series'
-): Promise<TmdbWatchProviders | null> {
+  type: 'movie' | 'series',
+  country: string = DEFAULT_COUNTRY
+): Promise<{ data: TmdbWatchProviders; watchUrl: string } | null> {
   const path = type === 'series' ? `/tv/${tmdbId}/watch/providers` : `/movie/${tmdbId}/watch/providers`;
-  const data = await tmdbFetch<{ results?: Record<string, TmdbWatchProviders> }>(path);
-  return data.results?.[ES_COUNTRY] ?? null;
+  const raw = await tmdbFetch<{ results?: Record<string, TmdbWatchProviders> }>(path);
+  const countryData = raw.results?.[country.toUpperCase()] ?? null;
+  if (!countryData) return null;
+  return {
+    data: countryData,
+    watchUrl: countryData.link ?? `https://www.justwatch.com/`,
+  };
 }
 
 export interface MappedProvider {
@@ -83,17 +89,18 @@ export interface MappedProvider {
   type: string;
   providerId: number;
   tmdbUrl: string;
+  watchUrl: string;
 }
 
 export function mapProviders(
   providers: TmdbWatchProviders,
+  watchUrl: string,
   tmdbId?: number,
   mediaType?: "movie" | "series",
 ): MappedProvider[] {
   const result: MappedProvider[] = [];
   const types: Array<keyof TmdbWatchProviders> = ['flatrate', 'rent', 'buy', 'free', 'ads'];
 
-  // Build a direct link to the title page when we have the TMDB ID
   const titleUrl = tmdbId
     ? mediaType === "series"
       ? `https://www.themoviedb.org/tv/${tmdbId}`
@@ -111,6 +118,7 @@ export function mapProviders(
         type: provType as string,
         providerId: prov.provider_id,
         tmdbUrl: titleUrl ?? `https://www.themoviedb.org/watch/providers/movie?provider=${prov.provider_id}`,
+        watchUrl,
       });
     }
   }
