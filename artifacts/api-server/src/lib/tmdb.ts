@@ -93,7 +93,7 @@ export function mapProviders(providers: TmdbWatchProviders): MappedProvider[] {
     const items = providers[provType] as TmdbProvider[] | undefined;
     if (!items) continue;
     for (const prov of items) {
-      const logoPath = prov.logo_path ? `https://image.tmdb.org/t/p/w92${prov.logo_path}` : null;
+      const logoPath = prov.logo_path ? `https://image.tmdb.org/t/p/w185${prov.logo_path}` : null;
       result.push({
         name: prov.provider_name,
         logo: logoPath,

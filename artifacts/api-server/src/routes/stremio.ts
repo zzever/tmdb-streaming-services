@@ -22,12 +22,14 @@ const manifest = {
   },
 };
 
-const providerTypeLabel: Record<string, string> = {
-  flatrate: "Suscripción",
-  rent: "Alquiler",
-  buy: "Compra",
-  free: "Gratis",
-  ads: "Con anuncios",
+const TYPE_ORDER = ["flatrate", "free", "ads", "rent", "buy"];
+
+const TYPE_META: Record<string, { emoji: string; label: string }> = {
+  flatrate: { emoji: "📺", label: "Suscripción" },
+  free:     { emoji: "🆓", label: "Gratis" },
+  ads:      { emoji: "📢", label: "Con anuncios" },
+  rent:     { emoji: "🎬", label: "Alquiler" },
+  buy:      { emoji: "🛒", label: "Compra" },
 };
 
 router.get("/stremio/manifest.json", (_req, res) => {
@@ -66,16 +68,24 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
 
     const mapped = mapProviders(providers);
 
-    const streams = mapped.map((p) => ({
-      name: p.name,
-      title: `${p.name}\n${providerTypeLabel[p.type] ?? p.type}`,
-      thumbnail: p.logo ?? undefined,
-      url: `https://www.themoviedb.org/provider/${p.providerId}`,
-      behaviorHints: {
-        notWebReady: true,
-        bingeGroup: p.name,
-      },
-    }));
+    // Sort by type priority
+    const sorted = [...mapped].sort(
+      (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
+    );
+
+    const streams = sorted.map((p) => {
+      const meta = TYPE_META[p.type] ?? { emoji: "▶️", label: p.type };
+      return {
+        name: `🇪🇸 ${p.name}`,
+        title: `${meta.emoji} ${meta.label}\nVer en ${p.name}`,
+        thumbnail: p.logo ?? undefined,
+        url: `https://www.themoviedb.org/provider/${p.providerId}`,
+        behaviorHints: {
+          notWebReady: true,
+          bingeGroup: `${p.type}-${p.name}`,
+        },
+      };
+    });
 
     res.json({ streams });
   } catch (err) {
