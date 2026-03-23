@@ -1,17 +1,30 @@
 import { Router, type IRouter } from "express";
-import { findTmdbId, getTmdbTitle, getImdbId, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear } from "../lib/tmdb.js";
+import { findTmdbId, getTmdbTitle, getImdbId, getTmdbDetails, getWatchProviders, mapProviders, getPopular, posterUrl, parseYear } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 
 const router: IRouter = Router();
 
+// Resolve the public-facing base URL of the API from Replit proxy headers or env var
+function getApiBase(req: { get: (h: string) => string | undefined; protocol: string }): string {
+  const domain = process.env.REPLIT_DEV_DOMAIN;
+  if (domain) return `https://${domain}`;
+  const host  = req.get("x-forwarded-host") ?? req.get("host") ?? "localhost";
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  return `${proto}://${host}`;
+}
+
 const manifest = {
   id: "community.tmdb-streaming-es",
-  version: "2.1.0",
+  version: "2.2.0",
   name: "TMDB Streaming ES",
   description: "Plataformas de streaming disponibles en España (y más países). URLs directas vía JustWatch — abre Netflix, Prime, Disney+ y más sin pasar por TMDB.",
   logo: "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136cfe3fec72548ebc1fea3fbbd1ad9e36364db20.svg",
   types: ["movie", "series"],
-  resources: ["stream", "catalog"],
+  resources: [
+    { name: "stream",   types: ["movie", "series"], idPrefixes: ["tt"] },
+    { name: "meta",     types: ["movie", "series"], idPrefixes: ["tt"] },
+    { name: "catalog",  types: ["movie", "series"] },
+  ],
   idPrefixes: ["tt"],
   catalogs: [
     { type: "movie",  id: "popular-es", name: "🇪🇸 Populares en España" },
@@ -198,8 +211,8 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
     const seenUrls = new Set<string>();
     const streams: object[] = [];
 
-    // Base URL of this API server — used to build the /stremio/open redirect page URL
-    const apiBase = `${req.protocol}://${req.get("host")}`;
+    // Public-facing base URL — resolves correctly behind Replit's proxy
+    const apiBase = getApiBase(req);
 
     for (const p of sorted) {
       const directUrl =
@@ -234,6 +247,56 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error fetching Stremio streams");
     res.json({ streams: [] });
+  }
+});
+
+// Meta handler — provides TMDB metadata so Stremio doesn't rely solely on Cinemeta
+router.get("/stremio/meta/:type/:id.json", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "application/json");
+
+  const { type, id } = req.params;
+  const imdbId = id.replace(/\.json$/, "").split(":")[0];
+
+  if (!imdbId.startsWith("tt")) {
+    res.status(404).json({ meta: null });
+    return;
+  }
+
+  const mediaType: "movie" | "series" = type === "series" ? "series" : "movie";
+
+  try {
+    const details = await getTmdbDetails(imdbId, mediaType);
+    if (!details) {
+      res.status(404).json({ meta: null });
+      return;
+    }
+
+    const name = details.title || details.name || "";
+    const dateStr = details.release_date || details.first_air_date || "";
+    const year = dateStr ? parseInt(dateStr.split("-")[0], 10) : undefined;
+    const poster = details.poster_path ? `https://image.tmdb.org/t/p/w342${details.poster_path}` : undefined;
+    const background = details.backdrop_path ? `https://image.tmdb.org/t/p/original${details.backdrop_path}` : undefined;
+    const genres = details.genres?.map((g) => g.name) ?? [];
+    const runtime = details.runtime ? [details.runtime] : undefined;
+
+    res.json({
+      meta: {
+        id: imdbId,
+        type: mediaType === "series" ? "series" : "movie",
+        name,
+        poster,
+        background,
+        description: details.overview || undefined,
+        year: isNaN(year as number) ? undefined : year,
+        imdbRating: details.vote_average ? details.vote_average.toFixed(1) : undefined,
+        genres: genres.length ? genres : undefined,
+        runtime,
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching Stremio meta");
+    res.status(500).json({ meta: null });
   }
 });
 

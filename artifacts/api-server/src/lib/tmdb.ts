@@ -30,7 +30,7 @@ export interface TmdbSearchResult {
   external_ids?: { imdb_id?: string | null };
 }
 
-async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+export async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(`${TMDB_BASE}${path}`);
   url.searchParams.set('api_key', TMDB_API_KEY);
   url.searchParams.set('language', 'es-ES');
@@ -178,4 +178,30 @@ export function parseYear(result: TmdbSearchResult): number | null {
 export function posterUrl(posterPath: string | null | undefined): string | null {
   if (!posterPath) return null;
   return `https://image.tmdb.org/t/p/w342${posterPath}`;
+}
+
+export interface TmdbDetails {
+  id: number;
+  title?: string;
+  name?: string;
+  overview?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average?: number;
+  genres?: { id: number; name: string }[];
+  runtime?: number;
+  number_of_seasons?: number;
+}
+
+export async function getTmdbDetails(imdbId: string, type: 'movie' | 'series'): Promise<TmdbDetails | null> {
+  try {
+    const tmdbId = await findTmdbId(imdbId, type);
+    if (!tmdbId) return null;
+    const path = type === 'series' ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+    return await tmdbFetch<TmdbDetails>(path);
+  } catch {
+    return null;
+  }
 }
