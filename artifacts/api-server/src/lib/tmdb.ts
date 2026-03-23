@@ -182,11 +182,16 @@ export async function searchTmdb(
 
 export async function getPopular(
   type: 'movie' | 'series',
-  page: number = 1
+  page: number = 1,
+  country: string = DEFAULT_COUNTRY
 ): Promise<{ results: TmdbSearchResult[]; totalPages: number }> {
-  const path = type === 'series' ? '/tv/popular' : '/movie/popular';
+  // Use /discover with watch_region so results are specific to the selected country
+  const path = type === 'series' ? '/discover/tv' : '/discover/movie';
   const data = await tmdbFetch<{ results: TmdbSearchResult[]; total_pages: number }>(path, {
     page: String(page),
+    sort_by: 'popularity.desc',
+    watch_region: country.toUpperCase(),
+    with_watch_monetization_types: 'flatrate|free|ads',
   });
   return { results: data.results || [], totalPages: data.total_pages || 1 };
 }

@@ -132,7 +132,7 @@ router.get("/streaming/popular", async (req, res) => {
   const country = parsed.data.country;
 
   try {
-    const { results, totalPages } = await getPopular(mediaType, page);
+    const { results, totalPages } = await getPopular(mediaType, page, country ?? 'ES');
 
     const mapped = await Promise.all(
       results.slice(0, 20).map(async (r) => {
