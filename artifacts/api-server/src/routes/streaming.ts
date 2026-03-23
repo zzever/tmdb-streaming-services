@@ -53,8 +53,9 @@ function injectMovistarProviders(
     });
   }
 
-  // Inject Movistar+ recordings (last 7 days) when Movistar+ is available or Atres channels are present
-  if (hasMovistar || hasAtres) {
+  // Movistar+ channels broadcast any kind of content (movies, series, shows) and record the last 7 days.
+  // Show the recordings link for any title with at least one provider — content may have aired on any channel.
+  if (providers.length > 0) {
     providers.push({
       name: "Movistar+ Grabaciones",
       logo: MPLUS_LOGO,

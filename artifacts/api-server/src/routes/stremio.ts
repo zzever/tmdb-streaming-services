@@ -304,8 +304,9 @@ router.get("/stremio/stream/:type/:id.json", async (req, res) => {
         });
       }
 
-      // Movistar+ recordings (last 7 days) — available when Movistar+ has VOD or Atres channels air there
-      if (hasMovistar || hasAtres) {
+      // Movistar+ channels broadcast any kind of content (movies, series, shows) and record the last 7 days.
+      // Show for any title with at least one stream — content may have aired on any Movistar+ channel.
+      if (streams.length > 0) {
         const grabacionesUrl = `https://ver.movistarplus.es/grabaciones/busqueda/?q=${encodeURIComponent(title)}`;
         streams.push({
           name: "🇪🇸 Movistar+",
