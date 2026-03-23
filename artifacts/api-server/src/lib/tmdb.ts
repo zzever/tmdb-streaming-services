@@ -233,3 +233,110 @@ export async function getTmdbDetails(imdbId: string, type: 'movie' | 'series'): 
     return null;
   }
 }
+
+export interface CastMember {
+  name: string;
+  character: string;
+  photo: string | null;
+  order: number;
+}
+
+export interface SimilarTitle {
+  tmdbId: number;
+  title: string;
+  poster: string | null;
+  backdrop: string | null;
+  rating: number | null;
+  year: number | null;
+  genres: string[];
+}
+
+export interface RichDetails {
+  tagline: string | null;
+  runtime: number | null;
+  status: string | null;
+  budget: number | null;
+  revenue: number | null;
+  director: string | null;
+  creators: string[];
+  cast: CastMember[];
+  similar: SimilarTitle[];
+  trailerKey: string | null;
+  spokenLanguages: string[];
+  productionCountries: string[];
+  numberOfSeasons: number | null;
+  voteCount: number | null;
+}
+
+export async function getTitleRichDetails(
+  tmdbId: number,
+  type: 'movie' | 'series'
+): Promise<RichDetails> {
+  const path = type === 'series' ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+
+  const raw = await tmdbFetch<any>(path, {
+    append_to_response: 'credits,similar,videos',
+  });
+
+  // Director / creator
+  const crew: any[] = raw.credits?.crew ?? [];
+  const director =
+    type === 'movie'
+      ? (crew.find((c: any) => c.job === 'Director')?.name ?? null)
+      : null;
+  const creators: string[] = type === 'series'
+    ? (raw.created_by ?? []).map((c: any) => c.name)
+    : [];
+
+  // Cast — top 8
+  const cast: CastMember[] = (raw.credits?.cast ?? [])
+    .slice(0, 8)
+    .map((c: any) => ({
+      name: c.name,
+      character: c.character,
+      photo: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+      order: c.order ?? 99,
+    }));
+
+  // Similar — top 8
+  const similar: SimilarTitle[] = (raw.similar?.results ?? [])
+    .slice(0, 8)
+    .map((s: any) => ({
+      tmdbId: s.id,
+      title: s.title || s.name || '',
+      poster: s.poster_path ? `https://image.tmdb.org/t/p/w342${s.poster_path}` : null,
+      backdrop: s.backdrop_path ? `https://image.tmdb.org/t/p/w780${s.backdrop_path}` : null,
+      rating: s.vote_average ?? null,
+      year: parseYear(s),
+      genres: mapGenres(s.genre_ids),
+    }));
+
+  // Trailer — prefer official YouTube trailers
+  const videos: any[] = raw.videos?.results ?? [];
+  const trailer =
+    videos.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube' && v.official) ??
+    videos.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') ??
+    null;
+
+  const runtime =
+    type === 'movie'
+      ? (raw.runtime ?? null)
+      : ((raw.episode_run_time as number[])?.[0] ?? null);
+
+  return {
+    tagline: raw.tagline || null,
+    runtime,
+    status: raw.status || null,
+    budget: raw.budget > 0 ? raw.budget : null,
+    revenue: raw.revenue > 0 ? raw.revenue : null,
+    director,
+    creators,
+    cast,
+    similar,
+    trailerKey: trailer?.key ?? null,
+    spokenLanguages: (raw.spoken_languages ?? []).map((l: any) => l.name),
+    productionCountries: (raw.production_countries ?? []).map((c: any) => c.name),
+    numberOfSeasons: raw.number_of_seasons ?? null,
+    voteCount: raw.vote_count ?? null,
+  };
+}

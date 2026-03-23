@@ -16,6 +16,7 @@ import {
   posterUrl,
   backdropUrl,
   mapGenres,
+  getTitleRichDetails,
 } from "../lib/tmdb.js";
 import { getJWDirectOffers } from "../lib/justwatch.js";
 
@@ -166,6 +167,24 @@ router.get("/streaming/popular", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error fetching popular titles");
     res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch popular titles" });
+  }
+});
+
+router.get("/streaming/details", async (req, res) => {
+  const tmdbId = Number(req.query.tmdbId);
+  const type = String(req.query.type ?? "movie") as "movie" | "series";
+
+  if (!tmdbId || isNaN(tmdbId)) {
+    res.status(400).json({ error: "Bad Request", message: "tmdbId is required" });
+    return;
+  }
+
+  try {
+    const details = await getTitleRichDetails(tmdbId, type === "series" ? "series" : "movie");
+    res.json(details);
+  } catch (err) {
+    req.log.error({ err }, "Error fetching title details");
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch details" });
   }
 });
 

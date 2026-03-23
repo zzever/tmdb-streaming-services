@@ -22,6 +22,7 @@ import type {
   SearchResponse,
   SearchTitlesParams,
   StreamingProvidersResponse,
+  TitleDetails,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -377,6 +378,37 @@ export const getGetPopularTitlesQueryOptions = <
 export type GetPopularTitlesQueryResult = NonNullable<
   Awaited<ReturnType<typeof getPopularTitles>>
 >;
+export const getTitleDetailsUrl = (params: { tmdbId: number; type: string }) =>
+  `/api/streaming/details?tmdbId=${params.tmdbId}&type=${params.type}`;
+
+export const getTitleDetails = async (
+  params: { tmdbId: number; type: string },
+  options?: RequestInit,
+): Promise<TitleDetails> =>
+  customFetch<TitleDetails>(getTitleDetailsUrl(params), { ...options, method: "GET" });
+
+export const getGetTitleDetailsQueryKey = (params: { tmdbId: number; type: string }) =>
+  [`/api/streaming/details`, params] as const;
+
+export function useGetTitleDetails<
+  TData = Awaited<ReturnType<typeof getTitleDetails>>,
+  TError = ErrorType<unknown>,
+>(
+  params: { tmdbId: number; type: string },
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getTitleDetails>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetTitleDetailsQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTitleDetails>>> = ({ signal }) =>
+    getTitleDetails(params, { signal } as RequestInit);
+  const query = useQuery({ queryKey, queryFn, ...queryOptions }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  query.queryKey = queryKey;
+  return query;
+}
+
 export type GetPopularTitlesQueryError = ErrorType<unknown>;
 
 /**

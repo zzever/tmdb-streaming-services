@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
 import { ProviderModal } from "@/components/ProviderModal";
 import { useLocale } from "@/context/LocaleContext";
-import { Copy, Check, Zap, Plug } from "lucide-react";
+import { Copy, Check, Zap, Plug, Shuffle } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -155,11 +155,25 @@ export default function Home() {
             </h1>
           </div>
 
-          {displayedData && displayedData.length > 0 && (
-            <span className="text-xs text-white/20 tabular-nums shrink-0">
-              {displayedData.length} títulos
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {displayedData && displayedData.length > 0 && (
+              <span className="text-xs text-white/20 tabular-nums">{displayedData.length} títulos</span>
+            )}
+            {displayedData && displayedData.length > 0 && (
+              <button
+                onClick={() => {
+                  const randomItem = displayedData[Math.floor(Math.random() * displayedData.length)];
+                  setSelectedMedia(randomItem);
+                }}
+                title="Título aleatorio"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all duration-200 hover:bg-white/10"
+                style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                Aleatorio
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Grid */}
@@ -242,6 +256,7 @@ export default function Home() {
         <ProviderModal
           isOpen={!!selectedMedia}
           onClose={() => setSelectedMedia(null)}
+          tmdbId={selectedMedia.tmdbId}
           imdbId={selectedMedia.imdbId}
           type={selectedMedia.type as "movie" | "series"}
           title={selectedMedia.title}

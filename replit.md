@@ -1,4 +1,8 @@
-# Workspace
+# TMDB Streaming ES
+
+## Project Goal
+
+Monorepo app showing streaming availability for movies/TV series in Spain. Works as a React/Vite web app (glassmorphism dark UI) and a Stremio addon. Shows providers with JustWatch direct URLs, country-aware popular lists, genres, backdrop fanart, cast with photos, similar titles, trailers.
 
 ## Overview
 

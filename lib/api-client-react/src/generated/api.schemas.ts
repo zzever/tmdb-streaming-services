@@ -71,6 +71,40 @@ export interface ErrorResponse {
   message: string;
 }
 
+export interface CastMember {
+  name: string;
+  character: string;
+  photo: string | null;
+  order: number;
+}
+
+export interface SimilarTitle {
+  tmdbId: number;
+  title: string;
+  poster: string | null;
+  backdrop: string | null;
+  rating: number | null;
+  year: number | null;
+  genres: string[];
+}
+
+export interface TitleDetails {
+  tagline: string | null;
+  runtime: number | null;
+  status: string | null;
+  budget: number | null;
+  revenue: number | null;
+  director: string | null;
+  creators: string[];
+  cast: CastMember[];
+  similar: SimilarTitle[];
+  trailerKey: string | null;
+  spokenLanguages: string[];
+  productionCountries: string[];
+  numberOfSeasons: number | null;
+  voteCount: number | null;
+}
+
 export type GetStreamingProvidersParams = {
   /**
    * IMDB ID of the movie or series (e.g. tt1234567)
