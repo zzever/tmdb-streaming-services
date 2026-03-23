@@ -4,9 +4,66 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Header } from "@/components/Header";
 import { MediaCard } from "@/components/MediaCard";
 import { ProviderModal } from "@/components/ProviderModal";
-import { Loader2, SearchX } from "lucide-react";
+import { Loader2, Copy, Check, ExternalLink } from "lucide-react";
 import type { PopularTitle, SearchResult } from "@workspace/api-client-react/src/generated/api.schemas";
 import { motion } from "framer-motion";
+
+const MANIFEST_URL = `${window.location.origin}/api/stremio/manifest.json`;
+const STREMIO_INSTALL_URL = MANIFEST_URL.replace(/^https?:\/\//, "stremio://");
+
+function StremioInstallBanner() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(MANIFEST_URL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <section className="relative z-10 border-t border-white/10 bg-gradient-to-r from-[#2b0fff]/10 via-[#6c3be8]/10 to-[#2b0fff]/10 py-10">
+      <div className="max-w-3xl mx-auto px-4 text-center">
+        <div className="inline-flex items-center gap-2 bg-primary/20 text-primary border border-primary/30 rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-wider mb-4">
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          Addon para Stremio
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Instala el addon en Stremio</h2>
+        <p className="text-muted-foreground mb-6 text-sm sm:text-base">
+          Ve directamente desde Stremio qué películas y series están disponibles en las plataformas de streaming de España.
+        </p>
+
+        {/* Install button */}
+        <a
+          href={STREMIO_INSTALL_URL}
+          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-3 rounded-xl transition-colors mb-6 shadow-lg shadow-primary/30"
+        >
+          <ExternalLink className="w-4 h-4" />
+          Instalar en Stremio
+        </a>
+
+        <p className="text-muted-foreground text-xs mb-3">O copia la URL del manifest para instalarlo manualmente:</p>
+
+        {/* Manifest URL copybox */}
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-3 max-w-xl mx-auto">
+          <code className="flex-1 text-xs text-left text-primary/80 truncate font-mono select-all">
+            {MANIFEST_URL}
+          </code>
+          <button
+            onClick={handleCopy}
+            className="flex-shrink-0 p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+            title="Copiar URL"
+          >
+            {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+          </button>
+        </div>
+
+        <p className="text-muted-foreground/60 text-xs mt-4">
+          En Stremio: Addons → Addon del repositorio → Pegar URL
+        </p>
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +173,9 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Stremio Install Banner */}
+      <StremioInstallBanner />
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/5 bg-black/20 backdrop-blur-md py-8 text-center text-muted-foreground text-sm">
