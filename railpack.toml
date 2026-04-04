@@ -2,4 +2,4 @@
 startCommand = "cd artifacts/api-server && pnpm start"
 
 [build]
-buildCommand = "pnpm run build"
+buildCommand = "pnpm install --no-frozen-lockfile && pnpm run build"
