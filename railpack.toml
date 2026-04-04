@@ -1,0 +1,5 @@
+[deploy]
+startCommand = "cd artifacts/api-server && pnpm start"
+
+[build]
+buildCommand = "pnpm run build"
